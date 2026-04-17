@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -12,7 +13,7 @@ type Extra = {
 }
 type VehicleExtra = { extra_id: string; price: number }
 
-export default function BookingPage() {
+function BookingPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const lang = (searchParams.get('lang') as Lang) || 'sr'
@@ -262,5 +263,13 @@ export default function BookingPage() {
         </form>
       </main>
     </div>
+  )
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Učitavanje...</div>}>
+      <BookingPageContent />
+    </Suspense>
   )
 }

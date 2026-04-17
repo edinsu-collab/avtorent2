@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -10,7 +11,7 @@ type Partner = { id: string; name: string; qr_code: string; client_discount_perc
 
 const ICONS: Record<string, string> = { economy: '🚗', suv: '🚙', premium: '🏎️', minivan: '🚐', convertible: '🚘' }
 
-export default function HomePage() {
+function HomePageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [lang, setLang] = useState<Lang>('sr')
@@ -49,7 +50,7 @@ export default function HomePage() {
       .then(r => r.json())
       .then(d => { setVehicles(Array.isArray(d) ? d : []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [category, pickupDate, returnDate, pickupTime, returnTime])
+  }, [category])
 
   useEffect(() => { fetchVehicles() }, [fetchVehicles])
 
@@ -201,5 +202,13 @@ export default function HomePage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>Učitavanje...</div>}>
+      <HomePageContent />
+    </Suspense>
   )
 }
