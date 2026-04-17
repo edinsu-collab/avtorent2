@@ -68,9 +68,9 @@ export default function AdminDanPage() {
   const returns = reservations.filter(r => r.return_date === selectedDate)
   const active = reservations.filter(r => r.pickup_date < selectedDate && r.return_date > selectedDate)
 
-  const totalRevenue = [...new Map(reservations.map(r => [r.id, r])).values()]
-    .filter(r => r.pickup_date === selectedDate)
-    .reduce((s, r) => s + (r.total_price || 0), 0)
+const totalRevenue = reservations
+  .filter(r => r.pickup_date === selectedDate)
+  .reduce((s, r) => s + (r.total_price || 0), 0)
 
   function formatTime(t: string | null) {
     if (!t) return '10:00'
