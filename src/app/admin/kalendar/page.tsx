@@ -202,7 +202,7 @@ export default function AdminKalendarPage() {
             return (
               <div key={day} style={{ background: isToday ? '#f0fdf8' : '#fff', minHeight: 100, padding: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: isToday ? 700 : 400, color: isToday ? '#0F6E56' : '#374151', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday ? '#1D9E75' : 'transparent', color: isToday ? '#fff' : '#374151' }}>{day}</span>
+                  <span style={{ fontSize: 13, fontWeight: isToday ? 700 : 400, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday ? '#1D9E75' : 'transparent', color: isToday ? '#fff' : '#374151' }}>{day}</span>
                   {dayRes.length > 0 && (
                     <span style={{ fontSize: 10, background: '#E1F5EE', color: '#085041', padding: '1px 5px', borderRadius: 10 }}>{dayRes.length}</span>
                   )}
