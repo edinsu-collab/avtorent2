@@ -281,11 +281,13 @@ export default function AdminCijenePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 12, color: '#6b7280' }}>{dynamicActive ? 'Uključeno' : 'Isključeno'}</span>
               <div
-                onClick={() => {
-                  const newState = !dynamicActive
-                  dynamics.forEach(d => supabase.from('dynamic_pricing').update({ is_active: newState }).eq('id', d.id))
-                  setTimeout(fetchData, 300)
-                }}
+                onClick={async () => {
+  const newState = !dynamicActive
+  await Promise.all(dynamics.map(d => 
+    supabase.from('dynamic_pricing').update({ is_active: newState }).eq('id', d.id)
+  ))
+  fetchData()
+}}
                 style={{ width: 40, height: 22, borderRadius: 11, background: dynamicActive ? '#1D9E75' : '#d1d5db', cursor: 'pointer', position: 'relative', transition: 'background .2s' }}>
                 <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: dynamicActive ? 20 : 2, transition: 'left .2s' }} />
               </div>
