@@ -112,7 +112,7 @@ function HomePageContent() {
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6, color: '#111' }}>{tr.heroTitle}</h1>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>{tr.heroSub}</p>
 
-          <div className="search-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 10, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, alignItems: 'end' }}>
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.pickupDate}</label>
               <input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} style={inp} />
@@ -128,11 +128,11 @@ function HomePageContent() {
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>Vrijeme vraćanja</label>
               <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} style={inp} />
-            </div>
-            <button className="search-btn" onClick={fetchVehicles} style={{ padding: '9px 20px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', width: '100%' }}>
-              {tr.search}
-            </button>
-          </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+  <button onClick={fetchVehicles} style={{ padding: '11px 20px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+    {tr.search}
+  </button>
+</div>
 
           {days && (
             <div style={{ marginTop: 10, fontSize: 13, color: '#6b7280' }}>
