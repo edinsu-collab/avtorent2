@@ -144,6 +144,7 @@ function BookingPageContent() {
         <div style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>Avto<span style={{ color: '#1D9E75' }}>Rent</span></div>
       </nav>
 
+      <style>{`@media (max-width: 640px) { .form-grid-2 { grid-template-columns: 1fr !important; } }`}</style>
       <main style={{ maxWidth: 620, margin: '24px auto', padding: '0 16px 48px' }}>
         <form onSubmit={handleSubmit} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '28px 24px' }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6, color: '#111' }}>{tr.bookTitle}</h1>
@@ -163,22 +164,22 @@ function BookingPageContent() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div><label style={lbl}>{tr.guestName}</label><input style={inp(errors.guestName)} value={form.guestName} onChange={e => setForm(f => ({ ...f, guestName: e.target.value }))} placeholder="Marko Petrović" />{errors.guestName && <div style={errStyle}>{errors.guestName}</div>}</div>
             <div><label style={lbl}>{tr.email}</label><input type="email" style={inp(errors.guestEmail)} value={form.guestEmail} onChange={e => setForm(f => ({ ...f, guestEmail: e.target.value }))} placeholder="marko@email.com" />{errors.guestEmail && <div style={errStyle}>{errors.guestEmail}</div>}</div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div><label style={lbl}>{tr.phone}</label><input style={inp(errors.guestPhone)} value={form.guestPhone} onChange={e => setForm(f => ({ ...f, guestPhone: e.target.value }))} placeholder="+382 67 000 000" />{errors.guestPhone && <div style={errStyle}>{errors.guestPhone}</div>}</div>
             <div><label style={lbl}>{tr.nationality}</label><input style={inp()} value={form.guestNationality} onChange={e => setForm(f => ({ ...f, guestNationality: e.target.value }))} placeholder="Crnogorska" /></div>
           </div>
 
           <div style={{ background: '#f9fafb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#111', marginBottom: 12 }}>Datumi i vremena</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div><label style={lbl}>{tr.pickupDate}</label><input type="date" style={inp(errors.pickupDate)} value={form.pickupDate} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />{errors.pickupDate && <div style={errStyle}>{errors.pickupDate}</div>}</div>
               <div><label style={lbl}>Vrijeme preuzimanja</label><input type="time" style={inp()} value={form.pickupTime} onChange={e => setForm(f => ({ ...f, pickupTime: e.target.value }))} /></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+            <div className="form-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
               <div><label style={lbl}>{tr.returnDate}</label><input type="date" style={inp(errors.returnDate)} value={form.returnDate} onChange={e => setForm(f => ({ ...f, returnDate: e.target.value }))} />{errors.returnDate && <div style={errStyle}>{errors.returnDate}</div>}</div>
               <div><label style={lbl}>Vrijeme vraćanja</label><input type="time" style={inp()} value={form.returnTime} onChange={e => setForm(f => ({ ...f, returnTime: e.target.value }))} /></div>
             </div>
