@@ -5,7 +5,11 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { translations, type Lang } from '@/lib/i18n'
 import { calculateDays } from '@/lib/pricing'
 
-type Vehicle = { id: string; name: string; category: string; price_per_day: number; original_price?: number; seats: number; transmission: string; features: string[]; year?: number; image_url?: string; season_name?: string }
+type Vehicle = {
+  id: string; name: string; category: string; price_per_day: number
+  original_price?: number; seats: number; transmission: string
+  features: string[]; year?: number; image_url?: string; season_name?: string
+}
 type Partner = { id: string; name: string; qr_code: string; client_discount_percent: number }
 
 const ICONS: Record<string, string> = { economy: '🚗', suv: '🚙', premium: '🏎️', minivan: '🚐', convertible: '🚘' }
@@ -31,13 +35,11 @@ function HomePageContent() {
     nextWeek.setDate(today.getDate() + 7)
     setPickupDate(today.toISOString().split('T')[0])
     setReturnDate(nextWeek.toISOString().split('T')[0])
-
     const qr = searchParams.get('ref') || searchParams.get('qr')
     if (qr) {
       setQrCode(qr)
       fetch(`/api/partners?qr=${qr}`).then(r => r.json()).then(d => { if (d) setPartner(d) }).catch(() => {})
     }
-
     const bl = navigator.language.slice(0, 2)
     if (bl === 'de') setLang('de')
     else if (bl === 'en') setLang('en')
@@ -62,8 +64,7 @@ function HomePageContent() {
 
   function handleBook(v: Vehicle) {
     const d = days || 7
-    const originalPrice = v.price_per_day * d
-    const discountedPrice = getDiscountedPrice(originalPrice)
+    const discountedPrice = getDiscountedPrice(v.price_per_day * d)
     const params = new URLSearchParams({
       vehicleId: v.id, vehicleName: v.name, pricePerDay: String(v.price_per_day),
       days: String(d), total: String(discountedPrice),
@@ -77,19 +78,14 @@ function HomePageContent() {
     router.push(`/rezervacija?${params}`)
   }
 
-  const inp = { padding: '8px 12px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 8, background: '#fff', color: '#111', width: '100%', boxSizing: 'border-box' as const }
+  const inp = {
+    padding: '8px 10px', fontSize: 13, border: '1px solid #d1d5db',
+    borderRadius: 8, background: '#fff', color: '#111',
+    width: '100%', boxSizing: 'border-box' as const
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <style>{`
-        @media (max-width: 640px) {
-          .search-grid { grid-template-columns: 1fr 1fr !important; }
-          .search-btn { grid-column: 1 / -1; }
-          .vehicles-grid { grid-template-columns: 1fr !important; }
-          .category-filters { gap: 6px !important; }
-        }
-      `}</style>
-
       <nav style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>Avto<span style={{ color: '#1D9E75' }}>Rent</span></div>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -103,7 +99,7 @@ function HomePageContent() {
 
       {partner && (
         <div style={{ background: '#E1F5EE', borderBottom: '1px solid #5DCAA5', padding: '10px 16px', fontSize: 13, color: '#085041' }}>
-          🎁 Kao gost apartmana <strong>{partner.name}</strong> ostvarujete <strong>{partner.client_discount_percent}% popusta</strong>!
+          {'🎁 '}{tr.qrBanner} <strong>{partner.name}</strong> — <strong>{partner.client_discount_percent}% popusta</strong>
         </div>
       )}
 
@@ -112,7 +108,8 @@ function HomePageContent() {
           <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6, color: '#111' }}>{tr.heroTitle}</h1>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>{tr.heroSub}</p>
 
-          <div className="search-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, alignItems: 'end' }}>
+          {/* Search - 2 kolone na mobilnom, 4+dugme na desktopu */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.pickupDate}</label>
               <input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} style={inp} />
@@ -129,11 +126,12 @@ function HomePageContent() {
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>Vrijeme vraćanja</label>
               <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} style={inp} />
             </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <button onClick={fetchVehicles} style={{ padding: '11px 20px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <button onClick={fetchVehicles} style={{ width: '100%', padding: '11px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 {tr.search}
               </button>
             </div>
+          </div>
 
           {days && (
             <div style={{ marginTop: 10, fontSize: 13, color: '#6b7280' }}>
@@ -142,7 +140,7 @@ function HomePageContent() {
           )}
         </div>
 
-        <div className="category-filters" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           {[['all', tr.allCats], ['economy', tr.economy], ['suv', tr.suv], ['premium', tr.premium], ['minivan', tr.minivan]].map(([val, label]) => (
             <button key={val} onClick={() => setCategory(val)} style={{ padding: '6px 14px', fontSize: 13, borderRadius: 20, border: '1px solid', borderColor: category === val ? '#1D9E75' : '#e5e7eb', background: category === val ? '#E1F5EE' : '#fff', color: category === val ? '#0F6E56' : '#6b7280', cursor: 'pointer', fontWeight: category === val ? 600 : 400 }}>
               {label}
@@ -154,16 +152,15 @@ function HomePageContent() {
           <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af' }}>Učitavanje...</div>
         ) : vehicles.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af', border: '1px dashed #e5e7eb', borderRadius: 12 }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🚗</div>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>{'🚗'}</div>
             <div style={{ fontSize: 14, color: '#374151' }}>Nema dostupnih vozila za odabrani period</div>
           </div>
         ) : (
-          <div className="vehicles-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
             {vehicles.map(v => {
               const originalTotal = days ? v.price_per_day * days : null
               const discountedTotal = originalTotal ? getDiscountedPrice(originalTotal) : null
               const hasDiscount = partner && partner.client_discount_percent > 0
-
               return (
                 <div key={v.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
                   <div style={{ height: 160, background: '#f3f4f6', overflow: 'hidden' }}>
@@ -177,9 +174,8 @@ function HomePageContent() {
                   </div>
                   <div style={{ padding: 14 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: '#111' }}>{v.name}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
                       {v.category} {v.year && `· ${v.year}`}
-                      {v.season_name && <span style={{ marginLeft: 6, background: '#FAEEDA', color: '#854F0B', padding: '1px 6px', borderRadius: 10, textTransform: 'none' }}>{v.season_name}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                       {[v.transmission === 'automatic' ? tr.automatic : tr.manual, `${v.seats} ${tr.seats}`, ...(v.features || []).slice(0, 1)].map(f => (
