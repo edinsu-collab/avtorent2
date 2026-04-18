@@ -221,7 +221,7 @@ function HomePageContent() {
 
         {partner && (
           <div style={{ marginTop: 20, background: '#E1F5EE', border: '1px solid #5DCAA5', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#085041' }}>
-            ℹ️ {tr.qrNote}
+            {tr.qrNote}
           </div>
         )}
       </main>
