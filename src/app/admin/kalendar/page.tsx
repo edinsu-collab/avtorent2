@@ -19,8 +19,9 @@ type Reservation = {
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   pending:   { bg: '#FAEEDA', text: '#633806', border: '#EF9F27' },
   confirmed: { bg: '#E1F5EE', text: '#085041', border: '#1D9E75' },
-  completed: { bg: '#E6F1FB', text: '#0C447C', border: '#378ADD' },
-  cancelled: { bg: '#f3f4f6', text: '#9ca3af', border: '#d1d5db' },
+  issued:    { bg: '#E6F1FB', text: '#0C447C', border: '#378ADD' },
+  closed:    { bg: '#f3f4f6', text: '#374151', border: '#9ca3af' },
+  cancelled: { bg: '#FCEBEB', text: '#791F1F', border: '#fecaca' },
 }
 
 const MONTHS = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Juni', 'Juli', 'August', 'Septembar', 'Oktobar', 'Novembar', 'Decembar']
@@ -270,7 +271,7 @@ export default function AdminKalendarPage() {
 
       {/* Legenda */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        {[['pending', 'Na čekanju'], ['confirmed', 'Potvrđeno'], ['completed', 'Završeno']].map(([status, label]) => {
+        {[['pending', 'Na čekanju'], ['confirmed', 'Potvrđeno'], ['issued', 'Izdato'], ['closed', 'Zatvoreno']].map(([status, label]) => {
           const sc = STATUS_COLORS[status]
           return (
             <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#6b7280' }}>
