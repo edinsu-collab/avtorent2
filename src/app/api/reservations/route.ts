@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       partner_discount_amount: partnerDiscountAmount || null,
       qr_source: partnerQrCode ?? null,
       language: lang,
-      status: 'pending',
+      status: 'confirmed',
       agent_id: agentId || null,
       agent_name: agentName || null,
     }).select().single()
