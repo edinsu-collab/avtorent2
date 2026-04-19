@@ -8,11 +8,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-type Vehicle = { id: string; name: string; category: string; price_per_day: number; seats: number; transmission: string; fuel_type: string; features: string[]; is_available: boolean; year: number; image_url: string | null }
+type Vehicle = { id: string; name: string; category: string; price_per_day: number; seats: number; transmission: string; fuel_type: string; features: string[]; is_available: boolean; year: number; image_url: string | null; location_id: string | null }
 
 const CAT: Record<string, string> = { economy: 'Ekonomična', suv: 'SUV', premium: 'Premium', minivan: 'Kombi', convertible: 'Kabriolet' }
 const ICONS: Record<string, string> = { economy: '🚗', suv: '🚙', premium: '🏎️', minivan: '🚐', convertible: '🚘' }
-const empty = { name: '', category: 'economy', price_per_day: '', seats: '5', transmission: 'manual', fuel_type: 'petrol', features: '', year: String(new Date().getFullYear()), is_available: true, image_url: '' }
+const empty = { name: '', category: 'economy', price_per_day: '', seats: '5', transmission: 'manual', fuel_type: 'petrol', features: '', year: String(new Date().getFullYear()), is_available: true, image_url: '', location_id: '' }
 
 export default function AdminVozilaPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -22,6 +22,11 @@ export default function AdminVozilaPage() {
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [locationsList, setLocationsList] = useState<{id:string;name:string}[]>([])
+
+  useEffect(() => {
+    fetch('/api/locations').then(r => r.json()).then(d => setLocationsList(d.locations || []))
+  }, [])
 
   useEffect(() => { fetchData() }, [])
 
@@ -33,7 +38,7 @@ export default function AdminVozilaPage() {
 
   function openEdit(v: Vehicle) {
     setEditVehicle(v)
-    setForm({ name: v.name, category: v.category, price_per_day: String(v.price_per_day), seats: String(v.seats), transmission: v.transmission, fuel_type: v.fuel_type, features: (v.features || []).join(', '), year: String(v.year || ''), is_available: v.is_available, image_url: v.image_url || '' })
+    setForm({ name: v.name, category: v.category, price_per_day: String(v.price_per_day), seats: String(v.seats), transmission: v.transmission, fuel_type: v.fuel_type, features: (v.features || []).join(', '), year: String(v.year || ''), is_available: v.is_available, image_url: v.image_url || '', location_id: v.location_id || '' })
     setShowForm(true)
   }
 
@@ -58,7 +63,7 @@ export default function AdminVozilaPage() {
   async function saveVehicle() {
     if (!form.name || !form.price_per_day) return
     setSaving(true)
-    const payload = { name: form.name, category: form.category, price_per_day: parseFloat(form.price_per_day), seats: parseInt(form.seats), transmission: form.transmission, fuel_type: form.fuel_type, features: form.features.split(',').map(s => s.trim()).filter(Boolean), year: parseInt(form.year) || null, is_available: form.is_available, image_url: form.image_url || null }
+    const payload = { name: form.name, category: form.category, price_per_day: parseFloat(form.price_per_day), seats: parseInt(form.seats), transmission: form.transmission, fuel_type: form.fuel_type, features: form.features.split(',').map(s => s.trim()).filter(Boolean), year: parseInt(form.year) || null, is_available: form.is_available, image_url: form.image_url || null, location_id: (form as any).location_id || null }
     if (editVehicle) { await supabase.from('vehicles').update(payload).eq('id', editVehicle.id) }
     else { await supabase.from('vehicles').insert(payload) }
     setSaving(false); setShowForm(false); fetchData()
@@ -149,6 +154,13 @@ export default function AdminVozilaPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div><label style={lbl}>Gorivo</label><select style={inp} value={form.fuel_type} onChange={e => setForm(f => ({ ...f, fuel_type: e.target.value }))}><option value="petrol">Benzin</option><option value="diesel">Dizel</option><option value="electric">Električno</option><option value="hybrid">Hibrid</option></select></div>
               <div><label style={lbl}>Godište</label><input style={inp} type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} /></div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbl}>Bazna lokacija</label>
+              <select style={inp} value={(form as any).location_id || ''} onChange={e => setForm(f => ({ ...f, location_id: e.target.value }))}>
+                <option value="">-- Bez lokacije --</option>
+                {locationsList.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
             </div>
             <div style={{ marginBottom: 14 }}><label style={lbl}>Oprema (zarezom)</label><input style={inp} value={form.features} onChange={e => setForm(f => ({ ...f, features: e.target.value }))} placeholder="Klima, GPS, Bluetooth" /></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>

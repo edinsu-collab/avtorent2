@@ -10,6 +10,7 @@ const navItems = [
   { href: '/admin/partneri', label: 'Partneri' },
   { href: '/admin/vozila', label: 'Vozila' },
   { href: '/admin/cijene', label: 'Cijene' },
+  { href: '/admin/lokacije', label: 'Lokacije' },
   { href: '/admin/dodaci', label: 'Dodaci' },
   { href: '/admin/kuponi', label: 'Kuponi' },
   { href: '/admin/agenti', label: 'Agenti' },
