@@ -31,7 +31,9 @@ function BookingPageContent() {
     returnDate: searchParams.get('returnDate') || '',
     pickupTime: searchParams.get('pickupTime') || '10:00',
     returnTime: searchParams.get('returnTime') || '10:00',
-    pickupLocation: '', notes: '',
+    pickupLocation: searchParams.get('pickupLocation') || '',
+    dropoffLocation: searchParams.get('dropoffLocation') || '',
+    transferFee: parseFloat(searchParams.get('transferFee') || '0'), notes: '',
   })
   const [extras, setExtras] = useState<Extra[]>([])
   const [vehicleExtras, setVehicleExtras] = useState<VehicleExtra[]>([])
@@ -193,6 +195,17 @@ function BookingPageContent() {
             <input style={inp(errors.pickupLocation)} value={form.pickupLocation} onChange={e => setForm(f => ({ ...f, pickupLocation: e.target.value }))} placeholder={tr.pickupPlaceholder} />
             {errors.pickupLocation && <div style={errStyle}>{errors.pickupLocation}</div>}
           </div>
+          {form.dropoffLocation && form.dropoffLocation !== form.pickupLocation && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={lbl}>Lokacija vraćanja</label>
+              <input style={inp()} value={form.dropoffLocation} onChange={e => setForm(f => ({ ...f, dropoffLocation: e.target.value }))} />
+              {form.transferFee > 0 && (
+                <div style={{ fontSize: 12, color: '#085041', background: '#E1F5EE', padding: '6px 10px', borderRadius: 6, marginTop: 4 }}>
+                  Naknada za transfer: <strong>{form.transferFee}€</strong>
+                </div>
+              )}
+            </div>
+          )}
 
           {extras.length > 0 && (
             <div style={{ marginBottom: 16 }}>

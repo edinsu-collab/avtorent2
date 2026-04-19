@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const {
       vehicleId, partnerQrCode, guestName, guestEmail: gEmail, guestPhone,
       guestNationality, pickupDate, returnDate, pickupTime, returnTime,
-      pickupLocation, notes, lang = 'sr',
+      pickupLocation, dropoffLocation, transferFee, notes, lang = 'sr',
       extras = [], couponCode, couponDiscountPercent, couponDiscountAmount,
       partnerDiscountPercent, partnerDiscountAmount,
       extrasTotal = 0, basePrice, totalPrice,
@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
       pickup_time: pickupTime || '10:00',
       return_time: returnTime || '10:00',
       pickup_location: pickupLocation,
+      dropoff_location: dropoffLocation || null,
+      transfer_fee: transferFee || 0,
       notes,
       base_price: finalBasePrice,
       extras_total: extrasTotal,
