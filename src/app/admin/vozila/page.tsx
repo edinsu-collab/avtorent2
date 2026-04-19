@@ -8,38 +8,56 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-type Vehicle = { id: string; name: string; category: string; price_per_day: number; seats: number; transmission: string; fuel_type: string; features: string[]; is_available: boolean; year: number; image_url: string | null; location_id: string | null }
+type Vehicle = {
+  id: string; name: string; category: string; price_per_day: number
+  seats: number; transmission: string; fuel_type: string; features: string[]
+  is_available: boolean; year: number; image_url: string | null
+  vehicle_locations?: { location_id: string }[]
+}
+type LocationItem = { id: string; name: string; city: string; country: string }
 
 const CAT: Record<string, string> = { economy: 'Ekonomična', suv: 'SUV', premium: 'Premium', minivan: 'Kombi', convertible: 'Kabriolet' }
 const ICONS: Record<string, string> = { economy: '🚗', suv: '🚙', premium: '🏎️', minivan: '🚐', convertible: '🚘' }
-const empty = { name: '', category: 'economy', price_per_day: '', seats: '5', transmission: 'manual', fuel_type: 'petrol', features: '', year: String(new Date().getFullYear()), is_available: true, image_url: '', location_id: '' }
+const empty = { name: '', category: 'economy', price_per_day: '', seats: '5', transmission: 'manual', fuel_type: 'petrol', features: '', year: String(new Date().getFullYear()), is_available: true, image_url: '', selectedLocations: [] as string[] }
 
 export default function AdminVozilaPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [locationsList, setLocationsList] = useState<LocationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [locationsList, setLocationsList] = useState<{id:string;name:string}[]>([])
 
   useEffect(() => {
+    fetchData()
     fetch('/api/locations').then(r => r.json()).then(d => setLocationsList(d.locations || []))
   }, [])
 
-  useEffect(() => { fetchData() }, [])
-
   async function fetchData() {
-    const { data } = await supabase.from('vehicles').select('*').order('price_per_day')
+    const { data } = await supabase
+      .from('vehicles')
+      .select('*, vehicle_locations(location_id)')
+      .order('price_per_day')
     setVehicles(data || [])
     setLoading(false)
   }
 
   function openEdit(v: Vehicle) {
     setEditVehicle(v)
-    setForm({ name: v.name, category: v.category, price_per_day: String(v.price_per_day), seats: String(v.seats), transmission: v.transmission, fuel_type: v.fuel_type, features: (v.features || []).join(', '), year: String(v.year || ''), is_available: v.is_available, image_url: v.image_url || '', location_id: v.location_id || '' })
+    const selectedLocations = (v.vehicle_locations || []).map(vl => vl.location_id)
+    setForm({ name: v.name, category: v.category, price_per_day: String(v.price_per_day), seats: String(v.seats), transmission: v.transmission, fuel_type: v.fuel_type, features: (v.features || []).join(', '), year: String(v.year || ''), is_available: v.is_available, image_url: v.image_url || '', selectedLocations })
     setShowForm(true)
+  }
+
+  function toggleLocation(locationId: string) {
+    setForm(f => ({
+      ...f,
+      selectedLocations: f.selectedLocations.includes(locationId)
+        ? f.selectedLocations.filter(id => id !== locationId)
+        : [...f.selectedLocations, locationId]
+    }))
   }
 
   async function uploadImage(file: File): Promise<string | null> {
@@ -47,7 +65,7 @@ export default function AdminVozilaPage() {
     const ext = file.name.split('.').pop()
     const path = `vehicles/${Date.now()}.${ext}`
     const { error } = await supabase.storage.from('vehicle-images').upload(path, file, { upsert: true })
-    if (error) { console.error(error); setUploading(false); return null }
+    if (error) { setUploading(false); return null }
     const { data } = supabase.storage.from('vehicle-images').getPublicUrl(path)
     setUploading(false)
     return data.publicUrl
@@ -63,9 +81,31 @@ export default function AdminVozilaPage() {
   async function saveVehicle() {
     if (!form.name || !form.price_per_day) return
     setSaving(true)
-    const payload = { name: form.name, category: form.category, price_per_day: parseFloat(form.price_per_day), seats: parseInt(form.seats), transmission: form.transmission, fuel_type: form.fuel_type, features: form.features.split(',').map(s => s.trim()).filter(Boolean), year: parseInt(form.year) || null, is_available: form.is_available, image_url: form.image_url || null, location_id: (form as any).location_id || null }
-    if (editVehicle) { await supabase.from('vehicles').update(payload).eq('id', editVehicle.id) }
-    else { await supabase.from('vehicles').insert(payload) }
+    const payload = {
+      name: form.name, category: form.category, price_per_day: parseFloat(form.price_per_day),
+      seats: parseInt(form.seats), transmission: form.transmission, fuel_type: form.fuel_type,
+      features: form.features.split(',').map(s => s.trim()).filter(Boolean),
+      year: parseInt(form.year) || null, is_available: form.is_available, image_url: form.image_url || null
+    }
+
+    let vehicleId = editVehicle?.id
+    if (editVehicle) {
+      await supabase.from('vehicles').update(payload).eq('id', editVehicle.id)
+    } else {
+      const { data } = await supabase.from('vehicles').insert(payload).select().single()
+      vehicleId = data?.id
+    }
+
+    // Ažuriraj lokacije
+    if (vehicleId) {
+      await supabase.from('vehicle_locations').delete().eq('vehicle_id', vehicleId)
+      if (form.selectedLocations.length > 0) {
+        await supabase.from('vehicle_locations').insert(
+          form.selectedLocations.map(lid => ({ vehicle_id: vehicleId, location_id: lid }))
+        )
+      }
+    }
+
     setSaving(false); setShowForm(false); fetchData()
   }
 
@@ -85,37 +125,45 @@ export default function AdminVozilaPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: showForm ? '1fr 340px' : '1fr', gap: 16 }}>
-        {/* Vehicle grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14, alignContent: 'start' }}>
-          {loading ? <div style={{ padding: 24, color: '#9ca3af', fontSize: 13 }}>Učitavanje...</div> : vehicles.map(v => (
-            <div key={v.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
-              <div style={{ height: 140, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
-                {v.image_url ? (
-                  <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>
-                    {ICONS[v.category] || '🚗'}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14, alignContent: 'start' }}>
+          {loading ? <div style={{ padding: 24, color: '#9ca3af', fontSize: 13 }}>Učitavanje...</div> : vehicles.map(v => {
+            const vLocations = (v.vehicle_locations || []).map(vl => locationsList.find(l => l.id === vl.location_id)?.name).filter(Boolean)
+            return (
+              <div key={v.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+                <div style={{ height: 140, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
+                  {v.image_url ? (
+                    <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>
+                      {ICONS[v.category] || '🚗'}
+                    </div>
+                  )}
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <button onClick={() => toggleAvail(v.id, v.is_available)} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, border: 'none', cursor: 'pointer', fontWeight: 500, background: v.is_available ? '#E1F5EE' : '#FAEEDA', color: v.is_available ? '#085041' : '#633806' }}>
+                      {v.is_available ? 'Dostupno' : 'Nedostupno'}
+                    </button>
                   </div>
-                )}
-                <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                  <button onClick={() => toggleAvail(v.id, v.is_available)} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, border: 'none', cursor: 'pointer', fontWeight: 500, background: v.is_available ? '#E1F5EE' : '#FAEEDA', color: v.is_available ? '#085041' : '#633806' }}>
-                    {v.is_available ? 'Dostupno' : 'Nedostupno'}
-                  </button>
+                </div>
+                <div style={{ padding: '12px 14px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#111', marginBottom: 2 }}>{v.name}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>{CAT[v.category]} · {v.year}</div>
+                  {vLocations.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                      {vLocations.map(loc => (
+                        <span key={loc} style={{ fontSize: 10, padding: '2px 6px', background: '#E6F1FB', color: '#0C447C', borderRadius: 10 }}>{loc}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: '#1D9E75' }}>{v.price_per_day}€<span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>/dan</span></span>
+                    <button onClick={() => openEdit(v)} style={{ padding: '5px 12px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 6, background: 'transparent', cursor: 'pointer', color: '#6b7280' }}>Uredi</button>
+                  </div>
                 </div>
               </div>
-              <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#111', marginBottom: 2 }}>{v.name}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>{CAT[v.category]} · {v.year}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#1D9E75' }}>{v.price_per_day}€<span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>/dan</span></span>
-                  <button onClick={() => openEdit(v)} style={{ padding: '5px 12px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 6, background: 'transparent', cursor: 'pointer', color: '#6b7280' }}>Uredi</button>
-                </div>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* Form */}
         {showForm && (
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 20, background: '#fff', alignSelf: 'start' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -123,11 +171,10 @@ export default function AdminVozilaPage() {
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af' }}>✕</button>
             </div>
 
-            {/* Slika */}
             <div style={{ marginBottom: 16 }}>
               <label style={lbl}>Slika vozila</label>
               {form.image_url && (
-                <div style={{ marginBottom: 8, borderRadius: 8, overflow: 'hidden', height: 120, background: '#f3f4f6' }}>
+                <div style={{ marginBottom: 8, borderRadius: 8, overflow: 'hidden', height: 100, background: '#f3f4f6' }}>
                   <img src={form.image_url} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
               )}
@@ -135,11 +182,7 @@ export default function AdminVozilaPage() {
                 {uploading ? 'Uploaduje se...' : '+ Odaberi sliku'}
                 <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} disabled={uploading} />
               </label>
-              {form.image_url && (
-                <button type="button" onClick={() => setForm(f => ({ ...f, image_url: '' }))} style={{ marginTop: 4, fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  Ukloni sliku
-                </button>
-              )}
+              {form.image_url && <button type="button" onClick={() => setForm(f => ({ ...f, image_url: '' }))} style={{ marginTop: 4, fontSize: 11, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Ukloni sliku</button>}
             </div>
 
             <div style={{ marginBottom: 12 }}><label style={lbl}>Naziv *</label><input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Volkswagen Golf" /></div>
@@ -155,18 +198,27 @@ export default function AdminVozilaPage() {
               <div><label style={lbl}>Gorivo</label><select style={inp} value={form.fuel_type} onChange={e => setForm(f => ({ ...f, fuel_type: e.target.value }))}><option value="petrol">Benzin</option><option value="diesel">Dizel</option><option value="electric">Električno</option><option value="hybrid">Hibrid</option></select></div>
               <div><label style={lbl}>Godište</label><input style={inp} type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} /></div>
             </div>
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbl}>Bazna lokacija</label>
-              <select style={inp} value={(form as any).location_id || ''} onChange={e => setForm(f => ({ ...f, location_id: e.target.value }))}>
-                <option value="">-- Bez lokacije --</option>
-                {locationsList.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+            <div style={{ marginBottom: 12 }}><label style={lbl}>Oprema (zarezom)</label><input style={inp} value={form.features} onChange={e => setForm(f => ({ ...f, features: e.target.value }))} placeholder="Klima, GPS, Bluetooth" /></div>
+
+            {/* Lokacije - checkbox */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={lbl}>Dostupne lokacije</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {locationsList.map(l => (
+                  <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, padding: '6px 10px', border: `1px solid ${form.selectedLocations.includes(l.id) ? '#5DCAA5' : '#e5e7eb'}`, borderRadius: 8, background: form.selectedLocations.includes(l.id) ? '#f0fdf8' : '#fff' }}>
+                    <input type="checkbox" checked={form.selectedLocations.includes(l.id)} onChange={() => toggleLocation(l.id)} style={{ accentColor: '#1D9E75' }} />
+                    <span style={{ color: '#111' }}>{l.name}</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{l.country}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-            <div style={{ marginBottom: 14 }}><label style={lbl}>Oprema (zarezom)</label><input style={inp} value={form.features} onChange={e => setForm(f => ({ ...f, features: e.target.value }))} placeholder="Klima, GPS, Bluetooth" /></div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
               <input type="checkbox" id="avail" checked={form.is_available} onChange={e => setForm(f => ({ ...f, is_available: e.target.checked }))} />
               <label htmlFor="avail" style={{ fontSize: 13, cursor: 'pointer', color: '#374151' }}>Vozilo je dostupno</label>
             </div>
+
             <button onClick={saveVehicle} disabled={saving || uploading} style={{ width: '100%', padding: 10, background: saving ? '#5DCAA5' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? 'Snimanje...' : editVehicle ? 'Sačuvaj' : 'Dodaj vozilo'}
             </button>

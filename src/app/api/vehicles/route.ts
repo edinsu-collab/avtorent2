@@ -12,15 +12,28 @@ export async function GET(req: NextRequest) {
   const returnDate = searchParams.get('returnDate')
   const locationId = searchParams.get('locationId')
 
-  let query = supabase.from('vehicles').select('*, locations(name, city, country)').eq('is_available', true).order('price_per_day')
+  let query = supabase
+    .from('vehicles')
+    .select('*, vehicle_locations(location_id, locations(name, city))')
+    .eq('is_available', true)
+    .order('price_per_day')
+
   if (category && category !== 'all') query = query.eq('category', category)
-  if (locationId) query = query.eq('location_id', locationId)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: 'Greška' }, { status: 500 })
 
+  let vehicles = data || []
+
+  // Filtriraj po lokaciji ako je odabrana
+  if (locationId) {
+    vehicles = vehicles.filter((v: any) =>
+      (v.vehicle_locations || []).some((vl: any) => vl.location_id === locationId)
+    )
+  }
+
   // Filtriraj zauzeta vozila
-  if (pickupDate && returnDate && data) {
+  if (pickupDate && returnDate && vehicles.length > 0) {
     const { data: booked } = await supabase
       .from('reservations')
       .select('vehicle_id')
@@ -28,14 +41,12 @@ export async function GET(req: NextRequest) {
       .lte('pickup_date', returnDate)
       .gte('return_date', pickupDate)
 
-    const bookedIds = new Set((booked || []).map((r: { vehicle_id: string }) => r.vehicle_id))
-    const available = data.filter((v: { id: string }) => !bookedIds.has(v.id))
-    const priced = await applyPricing(supabase, available, pickupDate)
-    return NextResponse.json(priced)
+    const bookedIds = new Set((booked || []).map((r: any) => r.vehicle_id))
+    vehicles = vehicles.filter((v: any) => !bookedIds.has(v.id))
   }
 
   const targetDate = pickupDate || new Date().toISOString().split('T')[0]
-  const priced = await applyPricing(supabase, data || [], targetDate)
+  const priced = await applyPricing(supabase, vehicles, targetDate)
   return NextResponse.json(priced)
 }
 
@@ -73,7 +84,7 @@ async function applyPricing(supabase: any, vehicles: any[], date: string) {
   const activeSeason = seasons && seasons.length > 0 ? seasons[0] : null
   const seasonMultiplier = activeSeason ? activeSeason.multiplier : 1
 
-  return vehicles.map(v => ({
+  return vehicles.map((v: any) => ({
     ...v,
     original_price: v.price_per_day,
     price_per_day: Math.round(v.price_per_day * seasonMultiplier * dynamicMultiplier),
