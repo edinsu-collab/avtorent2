@@ -586,7 +586,7 @@ export default function AdminReservationsPage() {
                     }} style={{ flex: 1, padding: '10px', border: '1px solid #d1d5db', borderRadius: 8, background: 'transparent', fontSize: 13, cursor: 'pointer', color: '#374151' }}>← Nazad</button>
                     <button
                       onClick={handleClose}
-                      disabled={hasSurcharges === null || closeSaving || (isEarlyReturn && !earlyReturnNote.trim())}
+                      disabled={hasSurcharges === null || closeSaving || (!!isEarlyReturn && !earlyReturnNote.trim())}
                       style={{ flex: 2, padding: '10px', background: closeSaving ? '#5DCAA5' : '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                       {closeSaving ? '...' : 'Zatvori rezervaciju'}
                     </button>
