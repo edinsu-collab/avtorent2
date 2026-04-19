@@ -64,9 +64,10 @@ export default function AdminKalendarPage() {
     const [{ data: v }, { data: r }] = await Promise.all([
       supabase.from('vehicles').select('id, name, category').eq('is_available', true).order('name'),
       supabase.from('reservations').select('*, vehicles(name)')
-        .neq('status', 'cancelled')
-        .or(`pickup_date.lte.${endDate},return_date.gte.${startDate}`)
-        .order('pickup_date'),
+  .neq('status', 'cancelled')
+  .lte('pickup_date', endDate)
+  .gte('return_date', startDate)
+  .order('pickup_date'),
     ])
 
     setVehicles(v || [])
