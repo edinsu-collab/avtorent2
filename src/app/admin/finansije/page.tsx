@@ -141,14 +141,31 @@ export default function AdminFinansijePage() {
   }
 
   async function acceptTransfer(id: string) {
-    await supabase.from('agent_transactions').update({ transfer_status: 'accepted', comment: null }).eq('id', id)
+    // Prihvati prijem kod primaoca
+    const { data: tx } = await supabase.from('agent_transactions').select('*').eq('id', id).single()
+    await supabase.from('agent_transactions').update({ 
+      transfer_status: 'accepted', 
+      comment: `Primljeno od: ${tx?.counterpart_agent}` 
+    }).eq('id', id)
+    
+    // Ažuriraj rashod kod pošiljaoca na accepted
+    if (tx?.counterpart_agent) {
+      await supabase.from('agent_transactions')
+        .update({ transfer_status: 'accepted' })
+        .eq('agent_name', tx.counterpart_agent)
+        .eq('type', 'expense')
+        .eq('counterpart_agent', agentName)
+        .eq('transfer_status', 'pending')
+        .eq('amount', tx.amount)
+    }
+    
     fetchData(agentName)
   }
 
   // Izračunaj stanje
   const cashFromReservations = reservationCashTotal
   const otherIncome = transactions.filter(t => t.type === 'income' && t.transfer_status !== 'pending').reduce((s, t) => s + t.amount, 0)
-  const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const expenses = transactions.filter(t => t.type === 'expense' && t.transfer_status !== 'pending').reduce((s, t) => s + t.amount, 0)
   const pendingTransfers = transactions.filter(t => t.type === 'income' && t.transfer_status === 'pending')
   const totalCash = cashFromReservations + otherIncome - expenses
 
@@ -248,7 +265,7 @@ export default function AdminFinansijePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.filter(t => t.transfer_status !== 'pending').map(t => (
+                  {transactions.map(t => (
                     <tr key={t.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                       <td style={{ padding: '10px 16px', color: '#9ca3af', fontSize: 12 }}>
                         {new Date(t.created_at).toLocaleDateString('sr-RS')}
@@ -260,8 +277,13 @@ export default function AdminFinansijePage() {
                         {t.reservations && <div style={{ fontSize: 11, color: '#9ca3af' }}>{t.reservations.ref_code} — {t.reservations.guest_name}</div>}
                       </td>
                       <td style={{ padding: '10px 16px', color: '#6b7280', fontSize: 12 }}>{t.comment || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 700, color: t.type === 'income' ? '#1D9E75' : '#dc2626', textAlign: 'right' }}>
-                        {t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)}€
+                      <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                        <div style={{ fontWeight: 700, color: t.transfer_status === 'pending' ? '#BA7517' : t.type === 'income' ? '#1D9E75' : '#dc2626' }}>
+                          {t.transfer_status === 'pending' ? '⏳ ' : t.type === 'income' ? '+' : '-'}{t.amount.toFixed(2)}€
+                        </div>
+                        {t.transfer_status === 'pending' && (
+                          <div style={{ fontSize: 10, color: '#BA7517' }}>čeka potvrdu</div>
+                        )}
                       </td>
                     </tr>
                   ))}

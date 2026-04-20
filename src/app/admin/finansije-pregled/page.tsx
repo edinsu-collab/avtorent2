@@ -36,7 +36,7 @@ export default function AdminFinansijePregledPage() {
       const cashFromRes = (collections || []).filter((c: any) => c.agent_name === name).reduce((s: number, c: any) => s + (c.cash_amount || 0), 0)
       const agentTx = (transactions || []).filter((t: any) => t.agent_name === name)
       const otherIncome = agentTx.filter((t: any) => t.type === 'income' && t.transfer_status !== 'pending').reduce((s: number, t: any) => s + t.amount, 0)
-      const expenses = agentTx.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + t.amount, 0)
+      const expenses = agentTx.filter((t: any) => t.type === 'expense' && t.transfer_status !== 'pending').reduce((s: number, t: any) => s + t.amount, 0)
       const safeDeposits = agentTx.filter((t: any) => t.type === 'expense' && t.category === 'Predaja u sef').reduce((s: number, t: any) => s + t.amount, 0)
       const pendingReceive = agentTx.filter((t: any) => t.type === 'income' && t.transfer_status === 'pending').reduce((s: number, t: any) => s + t.amount, 0)
       const balance = cashFromRes + otherIncome - expenses
