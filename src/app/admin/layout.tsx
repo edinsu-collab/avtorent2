@@ -2,11 +2,22 @@
 
 import { usePathname } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
 
-const navItems = [
+const AGENT_NAV = [
   { href: '/admin', label: 'Pregled' },
   { href: '/admin/dan', label: 'Dnevni pregled' },
   { href: '/admin/rezervacije', label: 'Rezervacije' },
+  { href: '/admin/kalendar', label: 'Kalendar' },
+  { href: '/admin/finansije', label: 'Finansije' },
+]
+
+const ADMIN_NAV = [
+  { href: '/admin', label: 'Pregled' },
+  { href: '/admin/dan', label: 'Dnevni pregled' },
+  { href: '/admin/rezervacije', label: 'Rezervacije' },
+  { href: '/admin/kalendar', label: 'Kalendar' },
+  { href: '/admin/finansije', label: 'Finansije' },
   { href: '/admin/partneri', label: 'Partneri' },
   { href: '/admin/vozila', label: 'Vozila' },
   { href: '/admin/cijene', label: 'Cijene' },
@@ -16,20 +27,37 @@ const navItems = [
   { href: '/admin/kuponi', label: 'Kuponi' },
   { href: '/admin/agenti', label: 'Agenti' },
   { href: '/admin/klijenti', label: 'Klijenti' },
-  { href: '/admin/kalendar', label: 'Kalendar' },
+  { href: '/admin/finansije-pregled', label: 'Finansije agenata' },
   { href: '/admin/analitika', label: 'QR analitika' },
 ]
 
-function getAgentName(): string {
+function getCookie(name: string): string {
   if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(/avtorent-agent-name=([^;]+)/)
+  const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
   return match ? decodeURIComponent(match[1]) : ''
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const [role, setRole] = useState<string | null>(null)
+  const [agentName, setAgentName] = useState('')
+
+  useEffect(() => {
+    const name = getCookie('avtorent-agent-name')
+    setAgentName(name)
+    if (name) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      supabase.from('agents').select('role').eq('full_name', name).single()
+        .then(({ data }) => setRole(data?.role || 'agent'))
+    }
+  }, [])
 
   if (pathname === '/admin/login') return <>{children}</>
+
+  const navItems = role === 'admin' ? ADMIN_NAV : AGENT_NAV
 
   async function handleLogout() {
     const supabase = createClient(
@@ -42,14 +70,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.location.href = '/admin/login'
   }
 
-  const agentName = getAgentName()
-
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f9fafb' }}>
       <div style={{ width: 210, background: '#fff', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '20px 16px', borderBottom: '1px solid #e5e7eb', fontSize: 16, fontWeight: 700, color: '#111' }}>
           Avto<span style={{ color: '#1D9E75' }}>Rent</span>
-          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400, marginLeft: 6 }}>admin</span>
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400, marginLeft: 6 }}>
+            {role === 'admin' ? 'admin' : 'agent'}
+          </span>
         </div>
         <nav style={{ flex: 1, paddingTop: 8 }}>
           {navItems.map(item => {
