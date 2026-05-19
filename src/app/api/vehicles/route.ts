@@ -6,16 +6,20 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category')
   const pickupDate = searchParams.get('pickupDate')
   const returnDate = searchParams.get('returnDate')
   const locationId = searchParams.get('locationId')
 
+  // Čitaj iz vozila_fleet — samo ona sa show_on_site = true i fleet_status = available
   let query = supabase
-    .from('vehicles')
-    .select('*, vehicle_locations(location_id, locations(name, city))')
+    .from('vozila_fleet')
+    .select('*')
+    .eq('show_on_site', true)
     .eq('is_available', true)
+    .eq('fleet_status', 'available')
     .order('price_per_day')
 
   if (category && category !== 'all') query = query.eq('category', category)
@@ -25,28 +29,73 @@ export async function GET(req: NextRequest) {
 
   let vehicles = data || []
 
-  // Filtriraj po lokaciji ako je odabrana
+  // Filtriraj po lokaciji (kolona lokacija u vozila_fleet)
   if (locationId) {
-    vehicles = vehicles.filter((v: any) =>
-      (v.vehicle_locations || []).some((vl: any) => vl.location_id === locationId)
-    )
+    // Učitaj naziv lokacije iz locations tabele
+    const { data: loc } = await supabase
+      .from('locations')
+      .select('name, city')
+      .eq('id', locationId)
+      .single()
+
+    if (loc) {
+      vehicles = vehicles.filter((v: any) => {
+        const vLok = (v.lokacija || '').toUpperCase()
+        const locName = (loc.name || '').toUpperCase()
+        const locCity = (loc.city || '').toUpperCase()
+        return vLok.includes(locName) || vLok.includes(locCity) ||
+               locName.includes(vLok) || locCity.includes(vLok)
+      })
+    }
   }
 
-  // Filtriraj zauzeta vozila
+  // Filtriraj zauzeta vozila po rezervacijama iz avtorent2
   if (pickupDate && returnDate && vehicles.length > 0) {
     const { data: booked } = await supabase
-      .from('reservations')
-      .select('vehicle_id')
-      .in('status', ['confirmed', 'issued'])
-      .lte('pickup_date', returnDate)
-      .gte('return_date', pickupDate)
+      .from('rezervacije')
+      .select('br_tablica')
+      .in('status', ['confirmed', 'issued', 'Potvrđena', 'Izdata'])
+      .lte('od_datuma', returnDate)
+      .gte('do_datuma', pickupDate)
 
-    const bookedIds = new Set((booked || []).map((r: any) => r.vehicle_id))
-    vehicles = vehicles.filter((v: any) => !bookedIds.has(v.id))
+    if (booked && booked.length > 0) {
+      const bookedPlates = new Set((booked).map((r: any) => (r.br_tablica || '').toUpperCase()))
+      vehicles = vehicles.filter((v: any) =>
+        !bookedPlates.has((v.license_plate || '').toUpperCase())
+      )
+    }
   }
 
+  // Mapiraj vozila_fleet -> format koji AdriaDrive očekuje
+  const mapped = vehicles.map((v: any) => ({
+    id: String(v.id),
+    name: v.agregirani_2 || `${v.marka || ''} ${v.model || ''}`.trim() || v.name || '',
+    category: v.category || 'economy',
+    transmission: v.transmission || v.mjenjac || 'manual',
+    fuel_type: v.fuel_type || 'diesel',
+    seats: v.seats || 5,
+    year: v.year || null,
+    image_url: v.image_url || null,
+    features: v.features || [],
+    price_per_day: parseFloat(v.price_per_day) || 0,
+    original_price: parseFloat(v.price_per_day) || 0,
+    is_available: v.is_available,
+    lokacija: v.lokacija || '',
+    license_plate: v.license_plate || '',
+    marka: v.marka || '',
+    model: v.model || '',
+    vehicle_class: v.vehicle_class || '',
+    // vehicle_locations format koji frontend očekuje — mapiramo lokaciju
+    vehicle_locations: v.lokacija ? [{
+      location_id: v.lokacija,
+      locations: { name: v.lokacija, city: v.lokacija }
+    }] : [],
+  }))
+
+  // Primijeni seasonal/dynamic pricing (ista logika kao prije)
   const targetDate = pickupDate || new Date().toISOString().split('T')[0]
-  const priced = await applyPricing(supabase, vehicles, targetDate)
+  const priced = await applyPricing(supabase, mapped, targetDate)
+
   return NextResponse.json(priced)
 }
 
@@ -67,17 +116,23 @@ async function applyPricing(supabase: any, vehicles: any[], date: string) {
   let dynamicMultiplier = 1
   if (dynamics && dynamics.length > 0) {
     const { data: booked } = await supabase
-      .from('reservations')
-      .select('vehicle_id')
-      .in('status', ['pending', 'confirmed'])
-      .lte('pickup_date', date)
-      .gte('return_date', date)
+      .from('rezervacije')
+      .select('br_tablica')
+      .in('status', ['confirmed', 'issued', 'Potvrđena', 'Izdata'])
+      .lte('od_datuma', date)
+      .gte('do_datuma', date)
 
-    const { data: total } = await supabase.from('vehicles').select('id').eq('is_available', true)
-    const bookedCount = new Set((booked || []).map((r: any) => r.vehicle_id)).size
+    const { data: total } = await supabase
+      .from('vozila_fleet')
+      .select('id')
+      .eq('is_available', true)
+      .eq('show_on_site', true)
+      .eq('fleet_status', 'available')
+
+    const bookedCount = new Set((booked || []).map((r: any) => r.br_tablica)).size
     const totalCount = (total || []).length
     const occupancyRate = totalCount > 0 ? (bookedCount / totalCount) * 100 : 0
-    const applicable = dynamics.filter((d: any) => occupancyRate >= d.occupancy_threshold)
+    const applicable = (dynamics || []).filter((d: any) => occupancyRate >= d.occupancy_threshold)
     if (applicable.length > 0) dynamicMultiplier = 1 + (applicable[0].price_increase_percent / 100)
   }
 
