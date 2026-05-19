@@ -6,9 +6,10 @@ import { translations, type Lang } from '@/lib/i18n'
 import { calculateDays } from '@/lib/pricing'
 
 type Vehicle = {
-  id: string; name: string; category: string; vehicle_class?: string; price_per_day: number
+  id: string; name: string; category: string; price_per_day: number
   original_price?: number; seats: number; transmission: string
-  features: string[]; year?: number; image_url?: string; season_name?: string
+  fuel_type?: string; features: string[]; year?: number; image_url?: string
+  season_name?: string; category_name?: string; slobodnih?: number; lokacija?: string
   vehicle_locations?: { location_id: string; locations?: { name: string; city: string } }[]
 }
 type Partner = { id: string; name: string; qr_code: string; client_discount_percent: number; location_id?: string; location_name?: string }
@@ -20,35 +21,13 @@ type SiteConfig = {
   price_modifier: number
 }
 
-const ICONS: Record<string, string> = {
-  Hatchback: '🚗', Medium: '🚗', Sedan: '🚗', SUV: '🚙',
-  'Station Wagon': '🚗', Luxury: '🏎️', Van: '🚐', Convertible: '🚘',
-  mini: '🚗', economy: '🚗', compact: '🚗', suv: '🚙', premium: '🏎️',
+const CLASS_ICONS: Record<string, string> = {
+  'Hatchback': '🚗', 'Medium': '🚗', 'Sedan': '🚗', 'SUV': '🚙',
+  'Station Wagon': '🚗', 'Luxury': '🏎️', 'Van': '🚐', 'Convertible': '🚘',
 }
 
-// Kategorije iz vehicle_class kolone u vozila_fleet
-const VEHICLE_CLASSES = [
-  'all',
-  'Hatchback',
-  'Medium',
-  'Sedan',
-  'SUV',
-  'Station Wagon',
-  'Luxury',
-  'Van',
-  'Convertible',
-]
-
-const CLASS_LABELS: Record<string, string> = {
-  all: 'Sva vozila',
-  Hatchback: 'Hatchback',
-  Medium: 'Medium',
-  Sedan: 'Sedan',
-  SUV: 'SUV',
-  'Station Wagon': 'Karavan',
-  Luxury: 'Luksuz',
-  Van: 'Kombi',
-  Convertible: 'Kabriolet',
+function getVehicleIcon(category: string): string {
+  return CLASS_ICONS[category] || '🚗'
 }
 
 function HomePageContent() {
@@ -56,7 +35,6 @@ function HomePageContent() {
   const router = useRouter()
   const [lang, setLang] = useState<Lang>('sr')
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
   const [partner, setPartner] = useState<Partner | null>(null)
   const [category, setCategory] = useState('all')
@@ -85,6 +63,7 @@ function HomePageContent() {
 
   useEffect(() => {
     const siteParam = searchParams.get('site')
+    // rent-cars.me domen
     const domain = siteParam || (typeof window !== 'undefined' ? window.location.hostname : 'rent-cars.me')
     fetch(`/api/site?domain=${domain}`)
       .then(r => r.json())
@@ -123,38 +102,18 @@ function HomePageContent() {
 
   const fetchVehicles = useCallback(() => {
     setLoading(true)
-    const params = new URLSearchParams()
+    // Šalje category kao vehicle_class filter
+    const params = new URLSearchParams({ category })
     if (pickupDate) params.set('pickupDate', pickupDate)
     if (returnDate) params.set('returnDate', returnDate)
     if (pickupLocationId && pickupLocationId !== 'custom') params.set('locationId', pickupLocationId)
     fetch(`/api/vehicles?${params}`)
       .then(r => r.json())
-      .then(d => {
-        const arr = Array.isArray(d) ? d : []
-        setAllVehicles(arr)
-        setLoading(false)
-      })
+      .then(d => { setVehicles(Array.isArray(d) ? d : []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [pickupDate, returnDate, pickupLocationId])
+  }, [category, pickupDate, returnDate, pickupLocationId])
 
   useEffect(() => { fetchVehicles() }, [fetchVehicles])
-
-  // Filtriraj po vehicle_class na klijentskoj strani
-  useEffect(() => {
-    if (category === 'all') {
-      setVehicles(allVehicles)
-    } else {
-      setVehicles(allVehicles.filter(v =>
-        (v.vehicle_class || '').toLowerCase() === category.toLowerCase() ||
-        (v.category || '').toLowerCase() === category.toLowerCase()
-      ))
-    }
-  }, [category, allVehicles])
-
-  // Dostupne klase iz učitanih vozila
-  const availableClasses = ['all', ...Array.from(new Set(
-    allVehicles.map(v => v.vehicle_class || v.category).filter(Boolean)
-  )).sort()]
 
   const days = pickupDate && returnDate ? calculateDays(pickupDate, pickupTime, returnDate, returnTime) : null
   const primaryColor = site?.primary_color || '#1a56a0'
@@ -195,7 +154,7 @@ function HomePageContent() {
     const total = displayPrice * d + transferFee
     const params = new URLSearchParams({
       vehicleId: v.id, vehicleName: v.name,
-      vehicleCategory: v.vehicle_class || v.category || '',
+      vehicleCategory: v.category || '',
       vehicleSeats: String(v.seats || ''),
       vehicleTransmission: v.transmission || '',
       vehicleYear: String(v.year || ''),
@@ -342,12 +301,22 @@ function HomePageContent() {
           )}
         </div>
 
-        {/* Kategorije — dinamički iz baze */}
+        {/* Klase vozila — iste kao u avtorent2 admin Vozila */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          {availableClasses.map(cls => (
-            <button key={cls} onClick={() => setCategory(cls)}
-              style={{ padding: '6px 14px', fontSize: 13, borderRadius: 20, border: '1px solid', borderColor: category === cls ? primaryColor : '#e5e7eb', background: category === cls ? `${primaryColor}22` : '#fff', color: category === cls ? primaryColor : '#6b7280', cursor: 'pointer', fontWeight: category === cls ? 600 : 400 }}>
-              {cls === 'all' ? (tr.allCats || 'Sva vozila') : cls}
+          {[
+            ['all', '🚗 Sve'],
+            ['Hatchback', 'Hatchback'],
+            ['Medium', 'Medium'],
+            ['Sedan', 'Sedan'],
+            ['SUV', '🚙 SUV'],
+            ['Station Wagon', 'Karavan'],
+            ['Luxury', '🏎️ Luxury'],
+            ['Van', '🚐 Van'],
+            ['Convertible', '🚘 Cabrio'],
+          ].map(([val, label]) => (
+            <button key={val} onClick={() => setCategory(val)}
+              style={{ padding: '6px 14px', fontSize: 13, borderRadius: 20, border: '1px solid', borderColor: category === val ? primaryColor : '#e5e7eb', background: category === val ? `${primaryColor}22` : '#fff', color: category === val ? primaryColor : '#6b7280', cursor: 'pointer', fontWeight: category === val ? 600 : 400 }}>
+              {label}
             </button>
           ))}
         </div>
@@ -363,10 +332,10 @@ function HomePageContent() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
             {vehicles.map(v => {
               const displayPrice = getDisplayPrice(v.price_per_day)
+              const originalPrice = v.price_per_day
+              const showDiscount = isCorporate || (partner && partner.client_discount_percent > 0)
               const originalTotal = days ? displayPrice * days : null
               const totalWithTransfer = originalTotal ? originalTotal + transferFee : null
-              const hasPartnerDiscount = partner && partner.client_discount_percent > 0
-              const cls = v.vehicle_class || v.category || ''
 
               return (
                 <div key={v.id} style={{ background: '#fff', border: '1px solid #c5d9f5', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 12px rgba(26,86,160,0.06)' }}>
@@ -375,24 +344,24 @@ function HomePageContent() {
                       <img src={v.image_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>
-                        {ICONS[cls] || '🚗'}
+                        {getVehicleIcon(v.category)}
                       </div>
                     )}
                   </div>
                   <div style={{ padding: 14 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: '#111' }}>{v.name}</div>
                     <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
-                      {cls}{v.year && ` · ${v.year}`}
+                      {v.category}{v.year ? ` · ${v.year}` : ''}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {[v.transmission === 'automatic' ? tr.automatic : tr.manual, `${v.seats} ${tr.seats}`, ...(v.features || []).slice(0, 1)].filter(Boolean).map(f => (
+                      {[v.transmission === 'automatic' ? tr.automatic : tr.manual, `${v.seats} ${tr.seats}`, ...(v.features || []).slice(0, 1)].map(f => (
                         <span key={f} style={{ fontSize: 11, padding: '3px 8px', background: '#f3f4f6', borderRadius: 20, color: '#6b7280' }}>{f}</span>
                       ))}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
-                        {(isCorporate || hasPartnerDiscount) && (
-                          <span style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'line-through', marginRight: 4 }}>{v.price_per_day}€</span>
+                        {showDiscount && (
+                          <span style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'line-through', marginRight: 4 }}>{originalPrice}€</span>
                         )}
                         <span style={{ fontSize: 20, fontWeight: 700, color: primaryColor }}>{displayPrice}€</span>
                         <span style={{ fontSize: 12, color: '#9ca3af' }}>{tr.perDay}</span>
