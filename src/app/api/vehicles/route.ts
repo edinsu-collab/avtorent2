@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const mapped = vehicles.map((v: any) => ({
     id: String(v.id),
     name: v.agregirani_2 || `${v.marka || ''} ${v.model || ''}`.trim() || v.name || '',
-    category: v.category || 'economy',
+    category: v.vehicle_class || v.category || 'economy',
     transmission: v.transmission || v.mjenjac || 'manual',
     fuel_type: v.fuel_type || 'diesel',
     seats: v.seats || 5,
