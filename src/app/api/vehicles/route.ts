@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     .eq('fleet_status', 'available')
     .order('price_per_day')
 
-  if (category && category !== 'all') query = query.eq('category', category)
+  if (category && category !== 'all') query = query.eq('vehicle_class', category)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: 'Greška' }, { status: 500 })
