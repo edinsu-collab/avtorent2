@@ -458,17 +458,22 @@ function BookingPageContent() {
                 </div>
               </div>
 
-              {/* Granica */}
+              {/* Vožnja van granice */}
               <div style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>🌍 Vožnja van granice CG</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[['allowed','✅ Dozvoljeno','#085041','#E1F5EE'],['forbidden','🚫 Zabranjeno','#DC2626','#FEE2E2']].map(([val, label, color, bg]) => (
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>🌍 Da li ćete ići van granice Crne Gore?</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  {[['allowed','✅ Da','#085041','#E1F5EE'],['forbidden','🚫 Ne','#1a56a0','#f0f6ff']].map(([val, label, color, bg]) => (
                     <button key={val} type="button" onClick={() => setForm(f => ({ ...f, borderCrossing: val }))}
-                      style={{ flex: 1, padding: '8px', fontSize: 12, border: `1px solid ${form.borderCrossing === val ? color : '#e5e7eb'}`, borderRadius: 8, background: form.borderCrossing === val ? bg : '#fff', color: form.borderCrossing === val ? color : '#6b7280', cursor: 'pointer', fontWeight: form.borderCrossing === val ? 600 : 400 }}>
+                      style={{ flex: 1, padding: '10px', fontSize: 13, border: `2px solid ${form.borderCrossing === val ? color : '#e5e7eb'}`, borderRadius: 8, background: form.borderCrossing === val ? bg : '#fff', color: form.borderCrossing === val ? color : '#6b7280', cursor: 'pointer', fontWeight: form.borderCrossing === val ? 700 : 400 }}>
                       {label}
                     </button>
                   ))}
                 </div>
+                {form.borderCrossing === 'allowed' && (
+                  <div style={{ background: '#FAEEDA', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#633806' }}>
+                    ⚠️ Cijene za vožnju van granice podliježu promjenama. Nakon potvrde rezervacije, naš agent će vas kontaktirati radi dogovora o uslovima i eventualnoj doplati.
+                  </div>
+                )}
               </div>
 
               {/* Dodaci */}
