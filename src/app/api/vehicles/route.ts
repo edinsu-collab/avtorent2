@@ -37,6 +37,16 @@ export async function GET(req: NextRequest) {
     fleetQuery = fleetQuery.eq('lokacija', fleetRegion)
   }
 
+  // Učitaj i override vozila za ovu lokaciju
+  let overrideVehicles: any[] = []
+  if (locationId) {
+    const { data: overrides } = await supabase
+      .from('location_vehicle_overrides')
+      .select('vozila_fleet(id, license_plate, marka, model, year, transmission, fuel_type, seats, image_url, vehicle_class, features, price_per_day, fleet_status, lokacija, show_on_site, price_category_id, agregirani_2)')
+      .eq('location_id', locationId)
+    overrideVehicles = (overrides || []).map((o: any) => o.vozila_fleet).filter(Boolean)
+  }
+
   const [
     { data: fleetData },
     { data: categories },
@@ -53,8 +63,14 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] }),
   ])
 
-  const fleet = fleetData || []
-  if (fleet.length === 0) return NextResponse.json([])
+  // Spoji fleet i override vozila (bez duplikata)
+  const fleetIds = new Set(fleet.map((v: any) => v.id))
+  const mergedFleet = [
+    ...fleet,
+    ...overrideVehicles.filter((v: any) => !fleetIds.has(v.id))
+  ]
+
+  if (mergedFleet.length === 0) return NextResponse.json([])
 
   // Zauzetost za dinamičke cijene
   const { data: zauzeteDanas } = await supabase
@@ -64,9 +80,9 @@ export async function GET(req: NextRequest) {
     .lte('od_datuma', targetDate)
     .gt('do_datuma', targetDate)
 
-  const totalAvailable = fleet.length
+  const totalAvailable = mergedFleet.length
   const zauzeteDanasSet = new Set((zauzeteDanas || []).map((r: any) => r.br_tablica))
-  const zauzeteDanasCount = fleet.filter((v: any) => zauzeteDanasSet.has(v.license_plate)).length
+  const zauzeteDanasCount = mergedFleet.filter((v: any) => zauzeteDanasSet.has(v.license_plate)).length
   const occupancyRate = totalAvailable > 0 ? (zauzeteDanasCount / totalAvailable) * 100 : 0
 
   const activeSeason = (seasons || [])[0] || null
@@ -79,7 +95,7 @@ export async function GET(req: NextRequest) {
   // Grupiši po marka+model+year
   const groupMap = new Map<string, any>()
 
-  for (const v of fleet) {
+  for (const v of mergedFleet) {
     if (pickupDate && returnDate && zauzetePeriodSet.has(v.license_plate)) continue
 
     const key = `${v.marka}__${v.model}__${v.year}`
