@@ -11,21 +11,40 @@ export async function GET(req: NextRequest) {
   const vehicleClass = searchParams.get('category')
   const pickupDate = searchParams.get('pickupDate')
   const returnDate = searchParams.get('returnDate')
+  const locationId = searchParams.get('locationId')
   const targetDate = pickupDate || new Date().toISOString().split('T')[0]
+
+  // Ako je odabrana lokacija, nađi fleet_region
+  let fleetRegion: string | null = null
+  if (locationId) {
+    const { data: loc } = await supabase
+      .from('locations')
+      .select('fleet_region')
+      .eq('id', locationId)
+      .single()
+    fleetRegion = loc?.fleet_region || null
+  }
+
+  // Učitaj flotu — filtriraj po fleet_region ako postoji
+  let fleetQuery = supabase
+    .from('vozila_fleet')
+    .select('id, license_plate, marka, model, year, transmission, fuel_type, seats, image_url, vehicle_class, features, price_per_day, fleet_status, lokacija, show_on_site, price_category_id, agregirani_2')
+    .eq('fleet_status', 'available')
+    .eq('show_on_site', true)
+    .order('marka')
+
+  if (fleetRegion) {
+    fleetQuery = fleetQuery.eq('lokacija', fleetRegion)
+  }
 
   const [
     { data: fleetData },
     { data: categories },
     { data: seasons },
     { data: dynamics },
-    { data: zauzeteRezData },
+    { data: zauzeteRez },
   ] = await Promise.all([
-    supabase
-      .from('vozila_fleet')
-      .select('id, license_plate, marka, model, year, transmission, fuel_type, seats, image_url, vehicle_class, features, price_per_day, fleet_status, lokacija, show_on_site, price_category_id, agregirani_2')
-      .eq('fleet_status', 'available')
-      .eq('show_on_site', true)
-      .order('marka'),
+    fleetQuery,
     supabase.from('price_categories').select('*').eq('is_active', true),
     supabase.from('seasonal_pricing').select('*').eq('is_active', true).lte('date_from', targetDate).gte('date_to', targetDate),
     supabase.from('dynamic_pricing').select('*').eq('is_active', true).order('occupancy_threshold', { ascending: false }),
@@ -37,7 +56,7 @@ export async function GET(req: NextRequest) {
   const fleet = fleetData || []
   if (fleet.length === 0) return NextResponse.json([])
 
-  // Zauzetost za dynamic pricing
+  // Zauzetost za dinamičke cijene
   const { data: zauzeteDanas } = await supabase
     .from('rezervacije')
     .select('br_tablica')
@@ -55,34 +74,24 @@ export async function GET(req: NextRequest) {
   const activeDynamics = (dynamics || []).filter((d: any) => d.is_active && occupancyRate >= d.occupancy_threshold)
   const dynamicMultiplier = activeDynamics.length > 0 ? 1 + activeDynamics[0].price_increase_percent / 100 : 1
 
-  const zauzetePeriodSet = new Set(((zauzeteRezData as any) || []).map((r: any) => r.br_tablica))
+  const zauzetePeriodSet = new Set(((zauzeteRez as any)?.data || []).map((r: any) => r.br_tablica))
 
-  // Grupiši po marka+model+year — identično kao admin/vozila
+  // Grupiši po marka+model+year
   const groupMap = new Map<string, any>()
 
   for (const v of fleet) {
     if (pickupDate && returnDate && zauzetePeriodSet.has(v.license_plate)) continue
 
     const key = `${v.marka}__${v.model}__${v.year}`
-
     if (!groupMap.has(key)) {
       groupMap.set(key, {
-        _vehicles: [],
-        marka: v.marka,
-        model: v.model,
-        year: v.year,
-        transmission: v.transmission,
-        fuel_type: v.fuel_type,
-        seats: v.seats,
-        image_url: v.image_url,
-        vehicle_class: v.vehicle_class,
-        features: v.features || [],
-        price_per_day: v.price_per_day || 0,
-        price_category_id: v.price_category_id,
-        lokacija: v.lokacija,
+        _vehicles: [], marka: v.marka, model: v.model, year: v.year,
+        transmission: v.transmission, fuel_type: v.fuel_type,
+        seats: v.seats, image_url: v.image_url, vehicle_class: v.vehicle_class,
+        features: v.features || [], price_per_day: v.price_per_day || 0,
+        price_category_id: v.price_category_id, lokacija: v.lokacija,
       })
     }
-
     const g = groupMap.get(key)!
     g._vehicles.push(v)
     if (!g.image_url && v.image_url) g.image_url = v.image_url
@@ -97,7 +106,6 @@ export async function GET(req: NextRequest) {
     groups = groups.filter(([, g]) => g.vehicle_class === vehicleClass)
   }
 
-  // Finalna cijena sa svim multiplikatorima
   const result = groups.map(([key, g]) => {
     const cat = (categories || []).find((c: any) => c.id === g.price_category_id)
     const catMultiplier = cat?.base_multiplier || 1
@@ -125,6 +133,5 @@ export async function GET(req: NextRequest) {
   })
 
   result.sort((a, b) => a.price_per_day - b.price_per_day)
-
   return NextResponse.json(result)
 }
