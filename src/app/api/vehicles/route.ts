@@ -63,6 +63,8 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] }),
   ])
 
+  const fleet = fleetData || []
+
   // Spoji fleet i override vozila (bez duplikata)
   const fleetIds = new Set(fleet.map((v: any) => v.id))
   const mergedFleet = [
