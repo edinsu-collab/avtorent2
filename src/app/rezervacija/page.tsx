@@ -1,6 +1,12 @@
 'use client'
 import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 import { useSearchParams, useRouter } from 'next/navigation'
 import { translations, type Lang } from '@/lib/i18n'
 import { calculateDays } from '@/lib/pricing'
@@ -84,10 +90,59 @@ function BookingPageContent() {
   const [couponLoading, setCouponLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [loggedInClient, setLoggedInClient] = useState<any>(null)
 
   const days = form.pickupDate && form.returnDate
     ? calculateDays(form.pickupDate, form.pickupTime, form.returnDate, form.returnTime)
     : parseInt(searchParams.get('days') || '1')
+
+  // Pre-fill form from logged-in client session
+  useEffect(() => {
+    function getCookie(name: string): string {
+      if (typeof document === 'undefined') return ''
+      const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
+      return match ? decodeURIComponent(match[1]) : ''
+    }
+    const email = getCookie('avtorent-client-email')
+    if (!email) return
+    supabase.from('clients').select('*').eq('email', email).single().then(({ data }) => {
+      if (!data) return
+      setLoggedInClient(data)
+      setForm(f => ({
+        ...f,
+        guestName: f.guestName || [data.first_name, data.last_name].filter(Boolean).join(' ') || data.full_name || '',
+        guestEmail: f.guestEmail || data.email || '',
+        guestPhone: f.guestPhone || data.phone || '',
+        guestNationality: f.guestNationality || data.nationality || '',
+        guestDob: f.guestDob || data.date_of_birth || '',
+        guestLicense: f.guestLicense || data.licence_number || '',
+      }))
+    })
+  }, [])
+
+  // Auto-popuni podatke za ulogovanog klijenta
+  useEffect(() => {
+    function getCookie(name: string): string {
+      if (typeof document === 'undefined') return ''
+      const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
+      return match ? decodeURIComponent(match[1]) : ''
+    }
+    const email = getCookie('avtorent-client-email')
+    if (!email) return
+    supabase.from('clients').select('*').eq('email', email).single()
+      .then(({ data: c }) => {
+        if (!c) return
+        setForm(f => ({
+          ...f,
+          guestEmail: email,
+          guestName: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || f.guestName,
+          guestPhone: c.phone || f.guestPhone,
+          guestNationality: c.nationality || f.guestNationality,
+          guestDob: c.date_of_birth || f.guestDob,
+          guestLicense: c.licence_number || f.guestLicense,
+        }))
+      })
+  }, [])
 
   useEffect(() => {
     fetch(`/api/extras?vehicleId=${vehicleId}`)
@@ -273,6 +328,14 @@ function BookingPageContent() {
           <div style={{ fontWeight: 800, fontSize: 15, color: '#1a56a0' }}>ADRIA<span style={{ fontWeight: 300, color: '#4a90d9' }}>DRIVE</span></div>
           <div style={{ fontSize: 9, color: '#4a90d9', letterSpacing: 2 }}>BALKAN · RENT A CAR</div>
         </a>
+        {loggedInClient && (
+          <a href="/moje" style={{ marginLeft: 'auto', marginRight: 8, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', background: '#E6F1FB', borderRadius: 20, padding: '4px 12px 4px 6px' }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#1a56a0', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+              {((loggedInClient.first_name || loggedInClient.full_name || loggedInClient.email || '?')[0]).toUpperCase()}
+            </div>
+            <span style={{ fontSize: 11, color: '#185FA5', fontWeight: 600 }}>{loggedInClient.first_name || loggedInClient.full_name?.split(' ')[0] || 'Moj nalog'}</span>
+          </a>
+        )}
         <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center' }}>
           {[1,2,3].map(s => (
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -313,7 +376,16 @@ function BookingPageContent() {
           {/* KORAK 1 */}
           {step === 1 && (
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 20 }}>👤 {L.yourData}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: loggedInClient ? 10 : 20 }}>👤 {L.yourData}</div>
+              {loggedInClient && (
+                <div style={{ background: '#E1F5EE', border: '1px solid #1D9E75', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#085041' }}>✅ {lang === 'de' ? 'Angemeldet als' : lang === 'ru' ? 'Вы вошли как' : 'Logged in as'}: {loggedInClient.first_name || loggedInClient.full_name || loggedInClient.email}</div>
+                    <div style={{ fontSize: 11, color: '#374151', marginTop: 2 }}>{lang === 'de' ? 'Ihre Daten wurden automatisch ausgefüllt.' : lang === 'ru' ? 'Ваши данные заполнены автоматически.' : 'Your details have been pre-filled.'}</div>
+                  </div>
+                  <a href="/moje" style={{ fontSize: 11, color: '#085041', textDecoration: 'none', fontWeight: 600 }}>Moj nalog →</a>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={lbl}>{L.fullName} *</label>
