@@ -634,7 +634,7 @@ export default function ClientPortalPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div>
                   <label style={lbl}>Ime</label>
-                  <input style={inpReq(profileForm.first_name)} value={profileForm.first_name} onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Marko" style={inpReq(profileForm.first_name)} />
+                  <input style={inpReq(profileForm.first_name)} value={profileForm.first_name} onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Marko" />
                 </div>
                 <div>
                   <label style={lbl}>Prezime</label>
