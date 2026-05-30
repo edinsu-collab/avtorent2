@@ -33,14 +33,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Pronađi ime vozila
+    // Pronađi ime vozila i license_plate
     let resolvedVehicleName = vehicleName || vehicleId || 'Unknown vehicle'
-    if (vehicleId && !vehicleId.includes('__')) {
+    let resolvedVehiclePlate: string | null = null
+
+    if (vehicleId && vehicleId.includes('__')) {
+      // Format: MARKA__MODEL__YEAR — traži po marka+model+year
+      const parts = vehicleId.split('__')
+      const [marka, model, year] = parts
+      if (marka && model) {
+        const query = supabase.from('vozila_fleet')
+          .select('id, agregirani_2, marka, model, year, license_plate')
+          .ilike('marka', marka)
+          .ilike('model', model)
+        if (year) query.eq('year', parseInt(year))
+        const { data: fleetVehicles } = await query.limit(1)
+        if (fleetVehicles && fleetVehicles.length > 0) {
+          const fv = fleetVehicles[0]
+          resolvedVehicleName = fv.agregirani_2 || vehicleName || `${fv.marka} ${fv.model} ${fv.year}`
+          resolvedVehiclePlate = fv.license_plate
+        } else {
+          resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
+        }
+      }
+    } else if (vehicleId) {
+      // Numerički ID
       const { data: fleetV } = await supabase
-        .from('vozila_fleet').select('agregirani_2, marka, model, year').eq('id', vehicleId).single()
-      if (fleetV) resolvedVehicleName = fleetV.agregirani_2 || `${fleetV.marka} ${fleetV.model} ${fleetV.year}`
-    } else if (vehicleId && vehicleId.includes('__')) {
-      resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
+        .from('vozila_fleet').select('agregirani_2, marka, model, year, license_plate').eq('id', vehicleId).single()
+      if (fleetV) {
+        resolvedVehicleName = fleetV.agregirani_2 || `${fleetV.marka} ${fleetV.model} ${fleetV.year}`
+        resolvedVehiclePlate = fleetV.license_plate
+      }
     }
 
     // Pronađi partnera
@@ -105,6 +128,8 @@ export async function POST(req: NextRequest) {
     // ═══ Kreiraj rezervaciju ═══
     const { data: reservation, error: resErr } = await supabase.from('reservations').insert({
       vehicle_id: vehicleId || null,
+      assigned_vehicle_name: resolvedVehicleName || null,
+      assigned_vehicle_plate: resolvedVehiclePlate || null,
       partner_id: partner?.id ?? null,
       client_id: clientId,
       guest_name: guestName,
