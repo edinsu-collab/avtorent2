@@ -735,14 +735,15 @@ export default function ClientPortalPage() {
               {/* Checklist šta fali */}
               {(() => {
                 const checks = [
-                  ['Ime i Prezime', !!(profileForm.first_name.trim() && profileForm.last_name.trim())],
+                  ['Ime', !!profileForm.first_name.trim()],
+                  ['Prezime', !!profileForm.last_name.trim()],
                   ['Telefon', !!profileForm.phone.trim()],
                   ['Datum rođenja', !!profileForm.date_of_birth],
-                  ['Zemlja', !!profileForm.nationality],
+                  ['Nacionalnost', !!profileForm.nationality],
+                  ['Adresa', !!profileForm.address.trim()],
                   ['Br. vozačke', !!profileForm.licence_number.trim()],
-                  ['Zemlja izdavanja V', !!profileForm.licence_country],
+                  ['Zemlja vozačke', !!profileForm.licence_country],
                   ['Slika vozačke', !!client?.licence_image_url],
-                  [docType === 'id_card' ? 'Br. LK' : 'Br. pasoša', !!(docType === 'id_card' ? profileForm.id_card_number.trim() : profileForm.passport_number.trim())],
                 ]
                 const done = checks.filter(([, v]) => v).length
                 const total = checks.length
