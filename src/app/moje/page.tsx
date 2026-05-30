@@ -17,7 +17,8 @@ type Client = {
   licence_expiry: string | null; licence_image_url: string | null
   date_of_birth: string | null; address: string | null
   first_name: string | null; last_name: string | null
-  jmbg: string | null; id_card_number: string | null
+  jmbg: string | null;
+  loyalty_tier: string | null; loyalty_total_spent: number | null; loyalty_reservations_count: number | null; id_card_number: string | null
   passport_number: string | null; phone2: string | null
 }
 
@@ -114,6 +115,76 @@ const EMPTY_PROFILE: ProfileForm = {
   date_of_birth: '', nationality: '', address: '',
   jmbg: '', id_card_number: '', passport_number: '',
   licence_number: '', licence_country: '', licence_expiry: '',
+}
+
+// ═══ LOYALTY HELPERS ═══
+function getLoyaltyTier(spent: number): 'bronze' | 'silver' | 'gold' {
+  if (spent >= 2000) return 'gold'
+  if (spent >= 500) return 'silver'
+  return 'bronze'
+}
+
+const TIER_CONFIG = {
+  bronze: { label: '🥉 Bronze', color: '#92400e', bg: '#fef3c7', border: '#f59e0b', discount: 0, next: 500, nextTier: 'Silver' },
+  silver: { label: '🥈 Silver', color: '#374151', bg: '#f3f4f6', border: '#9ca3af', discount: 5, next: 2000, nextTier: 'Gold' },
+  gold:   { label: '🥇 Gold',   color: '#92400e', bg: '#fef9c3', border: '#eab308', discount: 10, next: null, nextTier: null },
+}
+
+function LoyaltyCard({ client, reservations }: { client: any, reservations: any[] }) {
+  const spent = client.loyalty_total_spent || reservations.filter((r: any) => r.status === 'closed' || r.status === 'completed').reduce((sum: number, r: any) => sum + (r.total_price || 0), 0)
+  const tier = getLoyaltyTier(spent)
+  const cfg = TIER_CONFIG[tier]
+  const nextAmount = cfg.next ? cfg.next - spent : 0
+  const progress = cfg.next ? Math.min(100, (spent / cfg.next) * 100) : 100
+  const completedRez = reservations.filter((r: any) => r.status === 'closed' || r.status === 'completed' || r.status === 'issued').length
+
+  return (
+    <div style={{ background: cfg.bg, border: `1.5px solid ${cfg.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: cfg.color }}>{cfg.label}</div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+            {completedRez} rezervacija · {spent.toFixed(0)}€ ukupno
+          </div>
+        </div>
+        {cfg.discount > 0 && (
+          <div style={{ background: cfg.border, color: '#fff', borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 700 }}>
+            -{cfg.discount}% popust
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      {cfg.next && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6b7280', marginBottom: 4 }}>
+            <span>{spent.toFixed(0)}€</span>
+            <span>do {cfg.nextTier}: još {Math.max(0, nextAmount).toFixed(0)}€</span>
+            <span>{cfg.next}€</span>
+          </div>
+          <div style={{ height: 8, background: 'rgba(0,0,0,0.1)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${progress}%`, background: cfg.border, borderRadius: 10, transition: 'width 0.5s ease' }} />
+          </div>
+        </div>
+      )}
+
+      {/* Benefits */}
+      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap' as const, gap: 6 }}>
+        {[
+          tier === 'bronze' && { text: '✓ Pristup portalu', active: true },
+          tier !== 'bronze' && { text: `✓ ${cfg.discount}% na sve rezervacije`, active: true },
+          tier === 'gold' && { text: '✓ Besplatna dostava', active: true },
+          tier === 'gold' && { text: '✓ Prioritetna podrška', active: true },
+          tier === 'bronze' && { text: '→ Silver: 5% popust od 500€', active: false },
+          tier === 'silver' && { text: '→ Gold: 10% + besplatna dostava od 2000€', active: false },
+        ].filter(Boolean).map((b: any, i) => (
+          <span key={i} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, background: b.active ? cfg.border : 'transparent', color: b.active ? '#fff' : '#9ca3af', border: b.active ? 'none' : '1px dashed #d1d5db' }}>
+            {b.text}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function ClientPortalPage() {
@@ -405,6 +476,15 @@ export default function ClientPortalPage() {
               {(client?.full_name || client?.email || '?')[0].toUpperCase()}
             </div>
             <span style={{ fontSize: 13, color: DS.textPrimary, fontWeight: 500 }}>{client?.full_name || client?.email}</span>
+            {client && (() => {
+              const spent = client.loyalty_total_spent || 0
+              const tier = getLoyaltyTier(spent)
+              return tier !== 'bronze' ? (
+                <span style={{ fontSize: 10, background: tier === 'gold' ? '#fef9c3' : '#f3f4f6', color: tier === 'gold' ? '#92400e' : '#374151', padding: '2px 7px', borderRadius: 20, fontWeight: 700, border: `1px solid ${tier === 'gold' ? '#eab308' : '#9ca3af'}` }}>
+                  {tier === 'gold' ? '🥇' : '🥈'}
+                </span>
+              ) : null
+            })()}
           </div>
           <button onClick={handleLogout} style={{ background: 'none', border: 'none', fontSize: 12, color: DS.textMuted, cursor: 'pointer', textDecoration: 'underline' }}>Odjavi se</button>
         </div>
