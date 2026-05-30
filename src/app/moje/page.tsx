@@ -978,4 +978,6 @@ export default function ClientPortalPage() {
       </footer>
     </div>
   )
+
+  
 }
