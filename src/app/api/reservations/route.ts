@@ -220,9 +220,15 @@ export async function POST(req: NextRequest) {
         totalPrice: finalTotal, partnerName: partner?.name, commissionAmount,
         qrSource: partnerQrCode, notes,
       })
+      const ADMIN_EMAILS = [
+        'Edinsu@gmail.com',
+        'dino.mekic@gmail.com',
+        'info@planetrentacar.me',
+        'besim.adzovic1@gmail.com',
+      ]
       await Promise.all([
         resend.emails.send({ from: process.env.FROM_EMAIL!, to: gEmail, subject: ge.subject, html: ge.html }),
-        resend.emails.send({ from: process.env.FROM_EMAIL!, to: process.env.ADMIN_EMAIL!, subject: ae.subject, html: ae.html }),
+        ...ADMIN_EMAILS.map(email => resend.emails.send({ from: process.env.FROM_EMAIL!, to: email, subject: ae.subject, html: ae.html })),
         ...(partner?.email ? [resend.emails.send({ from: process.env.FROM_EMAIL!, to: partner.email, subject: ae.subject, html: ae.html })] : []),
       ])
     } catch (e) { console.error('Email error:', e) }
