@@ -55,6 +55,15 @@ const inp: React.CSSProperties = {
   border: `1px solid ${DS.border}`, borderRadius: 8,
   color: DS.textPrimary, boxSizing: 'border-box', background: DS.bgCard,
 }
+// Input sa zelenim/crvenim okvirom za obavezna polja
+function inpReq(val: string | null | undefined): React.CSSProperties {
+  const filled = !!(val && val.toString().trim())
+  return {
+    ...inp,
+    border: filled ? '1.5px solid #1D9E75' : '1.5px solid #fca5a5',
+    background: filled ? '#f0fdf8' : '#fff5f5',
+  }
+}
 const lbl: React.CSSProperties = { fontSize: 12, color: DS.textSecondary, display: 'block', marginBottom: 4, fontWeight: 500 }
 
 function getCookie(name: string): string {
@@ -625,15 +634,15 @@ export default function ClientPortalPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div>
                   <label style={lbl}>Ime</label>
-                  <input style={inp} value={profileForm.first_name} onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Marko" />
+                  <input style={inpReq(profileForm.first_name)} value={profileForm.first_name} onChange={e => setProfileForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Marko" style={inpReq(profileForm.first_name)} />
                 </div>
                 <div>
                   <label style={lbl}>Prezime</label>
-                  <input style={inp} value={profileForm.last_name} onChange={e => setProfileForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Petrović" />
+                  <input style={inpReq(profileForm.last_name)} value={profileForm.last_name} onChange={e => setProfileForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Petrović" />
                 </div>
                 <div>
                   <label style={lbl}>Telefon 1</label>
-                  <input style={inp} value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))} placeholder="+382 67 000 000" />
+                  <input style={inpReq(profileForm.phone)} value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))} placeholder="+382 67 000 000" />
                 </div>
                 <div>
                   <label style={lbl}>Telefon 2 (opciono)</label>
@@ -641,18 +650,18 @@ export default function ClientPortalPage() {
                 </div>
                 <div>
                   <label style={lbl}>Datum rođenja</label>
-                  <input type="date" style={inp} value={profileForm.date_of_birth} onChange={e => setProfileForm(f => ({ ...f, date_of_birth: e.target.value }))} />
+                  <input type="date" style={{...inp, border: profileForm.date_of_birth ? "1.5px solid #1D9E75" : "1.5px solid #fca5a5", background: profileForm.date_of_birth ? "#f0fdf8" : "#fff5f5"}} value={profileForm.date_of_birth} onChange={e => setProfileForm(f => ({ ...f, date_of_birth: e.target.value }))} />
                 </div>
                 <div>
                   <label style={lbl}>Zemlja / Nacionalnost</label>
-                  <select style={inp} value={profileForm.nationality} onChange={e => setProfileForm(f => ({ ...f, nationality: e.target.value }))}>
+                  <select style={inpReq(profileForm.nationality)} value={profileForm.nationality} onChange={e => setProfileForm(f => ({ ...f, nationality: e.target.value }))}>
                     <option value="">-- Odaberi --</option>
                     {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>Adresa stanovanja</label>
-                  <input style={inp} value={profileForm.address} onChange={e => setProfileForm(f => ({ ...f, address: e.target.value }))} placeholder="Ulica, grad" />
+                  <input style={inpReq(profileForm.address)} value={profileForm.address} onChange={e => setProfileForm(f => ({ ...f, address: e.target.value }))} placeholder="Ulica, grad" />
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>JMBG (opciono)</label>
@@ -687,11 +696,11 @@ export default function ClientPortalPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={lbl}>Broj vozačke</label>
-                  <input style={inp} value={profileForm.licence_number} onChange={e => setProfileForm(f => ({ ...f, licence_number: e.target.value }))} placeholder="001234567" />
+                  <input style={inpReq(profileForm.licence_number)} value={profileForm.licence_number} onChange={e => setProfileForm(f => ({ ...f, licence_number: e.target.value }))} placeholder="001234567" />
                 </div>
                 <div>
                   <label style={lbl}>Zemlja izdavanja</label>
-                  <select style={inp} value={profileForm.licence_country} onChange={e => setProfileForm(f => ({ ...f, licence_country: e.target.value }))}>
+                  <select style={inpReq(profileForm.licence_country)} value={profileForm.licence_country} onChange={e => setProfileForm(f => ({ ...f, licence_country: e.target.value }))}>
                     <option value="">-- Odaberi --</option>
                     {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
