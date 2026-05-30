@@ -187,8 +187,7 @@ export async function POST(req: NextRequest) {
         totalPrice: finalTotal, refCode: reservation.ref_code, lang,
         isNewClient, tempPassword, siteUrl,
         pickupTime: pickupTime || '10:00', returnTime: returnTime || '10:00',
-        // Ne tražimo vozačku ako je već ima
-        hasLicense: clientHasLicense,
+
       })
       const ae = adminEmail({
         refCode: reservation.ref_code, guestName, guestEmail: gEmail, guestPhone,
