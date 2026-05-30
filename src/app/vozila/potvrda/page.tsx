@@ -13,13 +13,13 @@ const DS = {
 function ConfirmPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const lang = (searchParams.get('lang') as Lang) || 'en'
+  const lang = (searchParams.get('lang') || 'en') as string
   const refCode = searchParams.get('ref') || ''
   const partnerName = searchParams.get('partnerName') || ''
   const partnerDiscount = parseFloat(searchParams.get('partnerDiscount') || '0')
   const isNewClient = searchParams.get('isNewClient') === 'true'
   const hasLicense = searchParams.get('hasLicense') === 'true'
-  const tr = translations[lang]
+  const tr = (translations as any)[lang] || translations['en']
 
   const title = lang === 'de' ? 'Buchung erfolgreich!' : lang === 'en' ? 'Booking confirmed!' : lang === 'tr' ? 'Rezervasyon onaylandı!' : lang === 'ru' ? 'Бронирование подтверждено!' : lang === 'es' ? '¡Reserva confirmada!' : lang === 'fr' ? 'Réservation confirmée !' : lang === 'ar' ? 'تم تأكيد الحجز!' : 'Uspješna rezervacija!'
   const subtitle = lang === 'en' ? 'Your booking confirmation will be sent to your email.' : lang === 'de' ? 'Ihre Buchungsbestätigung wird per E-Mail zugesendet.' : lang === 'ru' ? 'Подтверждение бронирования будет отправлено на ваш email.' : lang === 'tr' ? 'Rezervasyon onayınız e-posta ile gönderilecek.' : 'Potvrdu rezervacije ćete dobiti putem email-a.'
