@@ -706,8 +706,31 @@ export default function ClientPortalPage() {
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Datum isteka</label>
-                  <input type="date" style={inp} value={profileForm.licence_expiry} onChange={e => setProfileForm(f => ({ ...f, licence_expiry: e.target.value }))} />
+                  <label style={lbl}>Datum isteka *</label>
+                  <input type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    style={{
+                      ...inp,
+                      border: !profileForm.licence_expiry
+                        ? '1.5px solid #fca5a5'
+                        : new Date(profileForm.licence_expiry) < new Date()
+                          ? '1.5px solid #dc2626'
+                          : '1.5px solid #1D9E75',
+                      background: !profileForm.licence_expiry
+                        ? '#fff5f5'
+                        : new Date(profileForm.licence_expiry) < new Date()
+                          ? '#fef2f2'
+                          : '#f0fdf8',
+                    }}
+                    value={profileForm.licence_expiry}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setProfileForm(f => ({ ...f, licence_expiry: e.target.value }))}
+                  />
+                  {profileForm.licence_expiry && new Date(profileForm.licence_expiry) < new Date() && (
+                    <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3, fontWeight: 600 }}>
+                      ⚠️ Vozačka dozvola je istekla — unesite važeći datum isteka
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -752,7 +775,9 @@ export default function ClientPortalPage() {
                   ['Adresa', !!profileForm.address.trim()],
                   ['Br. vozačke', !!profileForm.licence_number.trim()],
                   ['Zemlja vozačke', !!profileForm.licence_country],
+                  ['Istek vozačke', !!(profileForm.licence_expiry && new Date(profileForm.licence_expiry) >= new Date())],
                   ['Slika vozačke', !!client?.licence_image_url],
+                  ['Datum isteka vozačke', !!(profileForm.licence_expiry && new Date(profileForm.licence_expiry) >= new Date())],
                 ]
                 const done = checks.filter(([, v]) => v).length
                 const total = checks.length
