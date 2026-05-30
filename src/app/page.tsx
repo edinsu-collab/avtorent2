@@ -108,9 +108,9 @@ function HomePageContent() {
       const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
       return match ? decodeURIComponent(match[1]) : ''
     }
-    const clientEmail = getCookie('avtorent-client-email')
-    if (clientEmail) {
-      supabase.from('clients').select('full_name, first_name, last_name, email').eq('email', _clientEmail).single()
+    const _clientEmail2 = getCookie('avtorent-client-email')
+    if (_clientEmail2) {
+      supabaseClient.from('clients').select('full_name, first_name, last_name, email').eq('email', _clientEmail2).single()
         .then(({ data: c }) => {
           if (c) setLoggedInUser({
             email: c.email,
