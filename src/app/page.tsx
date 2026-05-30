@@ -86,11 +86,6 @@ function HomePageContent() {
     }
 
     // Check if client is logged in
-    function getCookie(name: string): string {
-      if (typeof document === 'undefined') return ''
-      const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
-      return match ? decodeURIComponent(match[1]) : ''
-    }
     const _clientEmail = getCookie('avtorent-client-email')
     if (_clientEmail) {
       supabaseClient.from('clients').select('first_name, full_name, email').eq('email', _clientEmail).single()
