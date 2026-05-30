@@ -251,48 +251,57 @@ function HomePageContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
-      <nav style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#111' }}>
-          ADRIA<span style={{ color: '#378ADD', fontWeight: 300 }}>DRIVE</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <a href="/o-nama" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>{lang === 'sr' ? 'O nama' : lang === 'de' ? 'Über uns' : 'About'}</a>
+      <nav style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, height: 56 }}>
+        {/* Logo */}
+        <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 0 }}>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#0e2d5e', letterSpacing: -0.5 }}>ADRIA</span>
+          <span style={{ fontSize: 18, fontWeight: 300, color: '#378ADD', letterSpacing: 1 }}>DRIVE</span>
+        </a>
+
+        {/* Nav links — desktop */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <a href="/o-nama" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>
+            {lang === 'sr' ? 'O nama' : lang === 'de' ? 'Über uns' : lang === 'fr' ? 'À propos' : lang === 'ru' ? 'О нас' : 'About'}
+          </a>
           <a href="/faq" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>FAQ</a>
-          <a href="/kontakt" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>{lang === 'sr' ? 'Kontakt' : 'Contact'}</a>
-          <a href="/blog" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none', fontWeight: 500 }}>Blog</a>
+          <a href="/kontakt" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>
+            {lang === 'sr' ? 'Kontakt' : lang === 'de' ? 'Kontakt' : lang === 'ru' ? 'Контакт' : 'Contact'}
+          </a>
+        </div>
+
+        {/* Right side: lang dropdown + account */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Language dropdown */}
+          <div style={{ position: 'relative' as const }}>
+            <select
+              value={lang}
+              onChange={e => setLang(e.target.value as Lang)}
+              style={{ padding: '5px 28px 5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid #e5e7eb', borderRadius: 20, background: '#f9fafb', color: '#374151', cursor: 'pointer', appearance: 'none' as const, WebkitAppearance: 'none' as const }}
+            >
+              <option value="en">🌐 EN</option>
+              <option value="sr">🇲🇪 SR</option>
+              <option value="de">🇩🇪 DE</option>
+              <option value="ru">🇷🇺 RU</option>
+              <option value="tr">🇹🇷 TR</option>
+              <option value="es">🇪🇸 ES</option>
+              <option value="fr">🇫🇷 FR</option>
+              <option value="ar">🇸🇦 AR</option>
+            </select>
+            <span style={{ position: 'absolute' as const, right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#9ca3af', pointerEvents: 'none' as const }}>▾</span>
+          </div>
+
+          {/* Account */}
           {loggedInName
-            ? <a href="/moje" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', background: '#E6F1FB', borderRadius: 20, padding: '5px 12px 5px 6px' }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#1a56a0', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+            ? <a href="/moje" style={{ display: 'flex', alignItems: 'center', gap: 7, textDecoration: 'none', background: '#E6F1FB', borderRadius: 20, padding: '5px 14px 5px 6px', border: '1px solid #c5d9f5' }}>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#1a56a0', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
                   {loggedInName[0].toUpperCase()}
                 </div>
                 <span style={{ fontSize: 12, color: '#185FA5', fontWeight: 600 }}>{loggedInName}</span>
               </a>
-            : <a href="/moje/login" style={{ fontSize: 13, color: '#1a56a0', textDecoration: 'none', fontWeight: 600, padding: '5px 12px', border: '1px solid #c5d9f5', borderRadius: 20 }}>
-                {lang === 'de' ? 'Anmelden' : lang === 'ru' ? 'Войти' : lang === 'tr' ? 'Giriş' : 'Login'}
+            : <a href="/moje/login" style={{ fontSize: 13, color: '#1a56a0', textDecoration: 'none', fontWeight: 600, padding: '6px 14px', border: '1px solid #c5d9f5', borderRadius: 20, background: '#f0f6ff' }}>
+                {lang === 'de' ? 'Anmelden' : lang === 'ru' ? 'Войти' : lang === 'tr' ? 'Giriş' : lang === 'ar' ? 'دخول' : 'Log in'}
               </a>
           }
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' as const, maxWidth: 240, justifyContent: 'flex-end' }}>
-            {([['sr','SR'],['en','EN'],['de','DE'],['tr','TR'],['es','ES'],['fr','FR'],['ar','AR'],['ru','RU']] as [Lang,string][]).map(([l, label]) => (
-              <button key={l} onClick={() => setLang(l)}
-                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 20, border: '1px solid', borderColor: lang === l ? primaryColor : '#e5e7eb', background: lang === l ? `${primaryColor}22` : 'transparent', color: lang === l ? primaryColor : '#6b7280', cursor: 'pointer', fontWeight: lang === l ? 700 : 400, direction: l === 'ar' ? 'rtl' : 'ltr' }}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {loggedInUser ? (
-            <a href="/moje" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#E6F1FB', border: '1px solid #c5d9f5', borderRadius: 20, textDecoration: 'none' }}>
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#1a56a0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                {(loggedInUser.name[0] || '?').toUpperCase()}
-              </div>
-              <span style={{ fontSize: 11, color: '#1a56a0', fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{loggedInUser.name.split(' ')[0]}</span>
-            </a>
-          ) : (
-            <a href="/moje/login" style={{ padding: '5px 12px', background: '#1a56a0', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}>
-              {lang === 'de' ? 'Anmelden' : lang === 'ru' ? 'Войти' : lang === 'tr' ? 'Giriş' : lang === 'ar' ? 'تسجيل الدخول' : 'Log in'}
-            </a>
-          )}
         </div>
       </nav>
 
