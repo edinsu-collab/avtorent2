@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       insurance, insuranceTotal,
       borderCrossing, flightNumber,
       pickupDate, returnDate, pickupTime, returnTime,
-      pickupLocation, dropoffLocation, transferFee, siteDomain, notes, lang = 'sr',
+      pickupLocation, dropoffLocation, transferFee, siteDomain, notes, lang = 'en',
       extras = [], couponCode, couponDiscountPercent, couponDiscountAmount,
       partnerDiscountPercent, partnerDiscountAmount,
       extrasTotal = 0, basePrice, totalPrice,
@@ -30,23 +30,16 @@ export async function POST(req: NextRequest) {
     } = body
 
     if (!guestName || !gEmail || !guestPhone || !pickupDate || !returnDate || !pickupLocation) {
-      return NextResponse.json({ error: 'Nedostaju polja' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Pronađi vozilo — vehicleId može biti marka__model__year key ili UUID
-    // Pokušaj u vozila_fleet prvo (rent-cars koristi grupiranje)
-    let resolvedVehicleName = vehicleName || vehicleId || 'Nepoznato vozilo'
-    
+    // Pronađi ime vozila
+    let resolvedVehicleName = vehicleName || vehicleId || 'Unknown vehicle'
     if (vehicleId && !vehicleId.includes('__')) {
-      // Možda je numerički ID iz vozila_fleet
       const { data: fleetV } = await supabase
-        .from('vozila_fleet')
-        .select('agregirani_2, marka, model, year')
-        .eq('id', vehicleId)
-        .single()
+        .from('vozila_fleet').select('agregirani_2, marka, model, year').eq('id', vehicleId).single()
       if (fleetV) resolvedVehicleName = fleetV.agregirani_2 || `${fleetV.marka} ${fleetV.model} ${fleetV.year}`
     } else if (vehicleId && vehicleId.includes('__')) {
-      // Format: marka__model__year — ime vozila već imamo iz vehicleName
       resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
     }
 
@@ -81,16 +74,19 @@ export async function POST(req: NextRequest) {
     const commissionPercent = partner?.commission_percent ?? 0
     const commissionAmount = finalTotal * (commissionPercent / 100)
 
-    // Kreiraj ili pronađi klijenta
+    // ═══ Klijent — provjeri postoji li i ima li vozačku ═══
     let clientId: string | null = null
     let tempPassword: string | null = null
     let isNewClient = false
+    let clientHasLicense = false
 
     const { data: existingClient } = await supabase
-      .from('clients').select('id, user_id').eq('email', gEmail).single()
+      .from('clients').select('id, user_id, licence_image_url, licence_number').eq('email', gEmail).single()
 
     if (existingClient) {
       clientId = existingClient.id
+      // Klijent postoji — provjeri ima li vozačku (ili u licence_image_url ili u licence_number)
+      clientHasLicense = !!(existingClient.licence_image_url || existingClient.licence_number)
     } else {
       tempPassword = generateTempPassword()
       isNewClient = true
@@ -103,9 +99,10 @@ export async function POST(req: NextRequest) {
         nationality: guestNationality, user_id: authData?.user?.id || null,
       }).select().single()
       clientId = newClient?.id || null
+      clientHasLicense = false
     }
 
-    // Kreiraj rezervaciju u reservations tabeli
+    // ═══ Kreiraj rezervaciju ═══
     const { data: reservation, error: resErr } = await supabase.from('reservations').insert({
       vehicle_id: vehicleId || null,
       partner_id: partner?.id ?? null,
@@ -155,9 +152,10 @@ export async function POST(req: NextRequest) {
 
     if (resErr || !reservation) {
       console.error('Reservation error:', resErr)
-      return NextResponse.json({ error: 'Greška pri kreiranju' }, { status: 500 })
+      return NextResponse.json({ error: 'Error creating reservation' }, { status: 500 })
     }
 
+    // Extras
     if (extras.length > 0) {
       await supabase.from('reservation_extras').insert(
         extras.map((e: any) => ({
@@ -189,6 +187,8 @@ export async function POST(req: NextRequest) {
         totalPrice: finalTotal, refCode: reservation.ref_code, lang,
         isNewClient, tempPassword, siteUrl,
         pickupTime: pickupTime || '10:00', returnTime: returnTime || '10:00',
+        // Ne tražimo vozačku ako je već ima
+        hasLicense: clientHasLicense,
       })
       const ae = adminEmail({
         refCode: reservation.ref_code, guestName, guestEmail: gEmail, guestPhone,
@@ -203,9 +203,14 @@ export async function POST(req: NextRequest) {
       ])
     } catch (e) { console.error('Email error:', e) }
 
-    return NextResponse.json({ success: true, refCode: reservation.ref_code, isNewClient })
+    return NextResponse.json({
+      success: true,
+      refCode: reservation.ref_code,
+      isNewClient,
+      hasLicense: clientHasLicense,
+    })
   } catch (e) {
     console.error(e)
-    return NextResponse.json({ error: 'Greška servera' }, { status: 500 })
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
