@@ -723,7 +723,6 @@ export default function ClientPortalPage() {
                           : '#f0fdf8',
                     }}
                     value={profileForm.licence_expiry}
-                    min={new Date().toISOString().split('T')[0]}
                     onChange={e => setProfileForm(f => ({ ...f, licence_expiry: e.target.value }))}
                   />
                   {profileForm.licence_expiry && new Date(profileForm.licence_expiry) < new Date() && (
