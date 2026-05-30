@@ -19,15 +19,13 @@ type Client = {
 type Reservation = {
   id: string; ref_code: string; pickup_date: string; return_date: string
   pickup_time: string; return_time: string; pickup_location: string
-  dropoff_location: string | null
-  total_price: number; final_total: number | null
+  dropoff_location: string | null; total_price: number; final_total: number | null
   status: string; inquiry_status: string | null; created_at: string
-  assigned_vehicle_name: string | null
-  insurance: string | null; insurance_total: number | null
-  border_crossing: string | null; flight_number: string | null
-  notes: string | null; extras_total: number | null
-  transfer_fee: number | null; site_domain: string | null
-  license_url: string | null
+  assigned_vehicle_name: string | null; insurance: string | null
+  insurance_total: number | null; border_crossing: string | null
+  flight_number: string | null; notes: string | null
+  extras_total: number | null; transfer_fee: number | null
+  site_domain: string | null; license_url: string | null
 }
 
 const DS = {
@@ -44,11 +42,6 @@ const ST: Record<string, { bg: string; color: string; label: string }> = {
   issued:    { bg: '#E1F5EE', color: '#085041', label: '🚗 Izdato' },
   completed: { bg: '#EAF3DE', color: '#27500A', label: '✓ Završeno' },
   cancelled: { bg: '#FCEBEB', color: '#791F1F', label: '✕ Otkazano' },
-}
-
-const INQ: Record<string, string> = {
-  new: '🆕 Novi upit', reviewing: '👀 U pregledu',
-  sent: '📨 Link poslan', confirmed: '✅ Potvrđeno', rejected: '❌ Odbijeno',
 }
 
 const inp = {
@@ -70,54 +63,24 @@ function daysBetween(from: string, to: string): number {
 function ReservationCard({ r, onOpen }: { r: Reservation; onOpen: () => void }) {
   const st = ST[r.status] || ST.pending
   const today = new Date().toISOString().split('T')[0]
-  const isActive = r.return_date >= today && (r.status === 'confirmed' || r.status === 'issued' || r.status === 'pending')
+  const isActive = r.return_date >= today && ['pending', 'confirmed', 'issued'].includes(r.status)
   const days = daysBetween(r.pickup_date, r.return_date)
   const total = r.final_total || r.total_price
-
   return (
-    <div onClick={onOpen} style={{
-      background: DS.bgCard, border: `1px solid ${isActive ? DS.borderBlue : DS.border}`,
-      borderRadius: 12, padding: '16px 18px', cursor: 'pointer',
-      borderLeft: `4px solid ${isActive ? DS.primary : DS.border}`,
-      transition: 'box-shadow 0.15s',
-    }}>
+    <div onClick={onOpen} style={{ background: DS.bgCard, border: `1px solid ${isActive ? DS.borderBlue : DS.border}`, borderRadius: 12, padding: '16px 18px', cursor: 'pointer', borderLeft: `4px solid ${isActive ? DS.primary : DS.border}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: DS.textPrimary, marginBottom: 2 }}>
-            🚗 {r.assigned_vehicle_name || 'Vozilo na čekanju'}
-          </div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: DS.textPrimary, marginBottom: 2 }}>🚗 {r.assigned_vehicle_name || 'Vozilo na čekanju'}</div>
           <div style={{ fontFamily: 'monospace', fontSize: 11, color: DS.textMuted }}>{r.ref_code}</div>
         </div>
-        <span style={{ fontSize: 11, background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 20, fontWeight: 600, whiteSpace: 'nowrap' as const }}>
-          {st.label}
-        </span>
+        <span style={{ fontSize: 11, background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 20, fontWeight: 600, whiteSpace: 'nowrap' as const }}>{st.label}</span>
       </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
-        <div style={{ color: DS.textMuted }}>
-          📅 Preuzimanje<br />
-          <span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.pickup_date} u {r.pickup_time?.slice(0, 5) || '10:00'}</span>
-        </div>
-        <div style={{ color: DS.textMuted }}>
-          📅 Vraćanje<br />
-          <span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.return_date} u {r.return_time?.slice(0, 5) || '10:00'}</span>
-        </div>
-        <div style={{ color: DS.textMuted }}>
-          📍 Lokacija<br />
-          <span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.pickup_location}</span>
-        </div>
-        <div style={{ color: DS.textMuted }}>
-          💰 Iznos<br />
-          <span style={{ color: DS.primary, fontWeight: 700, fontSize: 15 }}>{total}€</span>
-          <span style={{ color: DS.textMuted, fontSize: 10 }}> · {days} dana</span>
-        </div>
+        <div style={{ color: DS.textMuted }}>📅 Preuzimanje<br /><span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.pickup_date} u {r.pickup_time?.slice(0, 5) || '10:00'}</span></div>
+        <div style={{ color: DS.textMuted }}>📅 Vraćanje<br /><span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.return_date} u {r.return_time?.slice(0, 5) || '10:00'}</span></div>
+        <div style={{ color: DS.textMuted }}>📍 Lokacija<br /><span style={{ color: DS.textPrimary, fontWeight: 500 }}>{r.pickup_location}</span></div>
+        <div style={{ color: DS.textMuted }}>💰 Iznos<br /><span style={{ color: DS.primary, fontWeight: 700, fontSize: 15 }}>{total}€</span><span style={{ color: DS.textMuted, fontSize: 10 }}> · {days} dana</span></div>
       </div>
-
-      {r.inquiry_status && r.inquiry_status !== 'confirmed' && r.status === 'pending' && (
-        <div style={{ marginTop: 8, fontSize: 11, color: '#633806', background: '#FAEEDA', padding: '4px 10px', borderRadius: 20, display: 'inline-block' }}>
-          {INQ[r.inquiry_status] || r.inquiry_status}
-        </div>
-      )}
     </div>
   )
 }
@@ -126,7 +89,7 @@ export default function ClientPortalPage() {
   const [client, setClient] = useState<Client | null>(null)
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'reservations' | 'feedback' | 'profile'>('reservations')
+  const [activeTab, setActiveTab] = useState<'reservations' | 'feedback' | 'profile' | 'contact'>('reservations')
   const [selectedRez, setSelectedRez] = useState<Reservation | null>(null)
   const [feedbackRating, setFeedbackRating] = useState(5)
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -154,14 +117,11 @@ export default function ClientPortalPage() {
       licence_number: clientData.licence_number || '', licence_country: clientData.licence_country || '',
       licence_expiry: clientData.licence_expiry || '',
     })
-
-    // Čitaj iz reservations tabele direktno (bez vehicles join)
     const { data: res } = await supabase
       .from('reservations')
       .select('id, ref_code, pickup_date, return_date, pickup_time, return_time, pickup_location, dropoff_location, total_price, final_total, status, inquiry_status, created_at, assigned_vehicle_name, insurance, insurance_total, border_crossing, flight_number, notes, extras_total, transfer_fee, site_domain, license_url')
       .eq('guest_email', email)
       .order('created_at', { ascending: false })
-
     setReservations(res || [])
     setLoading(false)
   }
@@ -200,18 +160,13 @@ export default function ClientPortalPage() {
   const active = reservations.filter(r => ['pending', 'confirmed', 'issued'].includes(r.status))
   const past = reservations.filter(r => ['completed', 'cancelled'].includes(r.status))
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.textMuted, background: DS.bgPage }}>
-      Učitavanje...
-    </div>
-  )
+  if (loading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.textMuted, background: DS.bgPage }}>Učitavanje...</div>
 
   const tabStyle = (tab: string): React.CSSProperties => ({
-    padding: '8px 18px', fontSize: 13, border: 'none',
+    padding: '8px 16px', fontSize: 13, border: 'none',
     background: activeTab === tab ? DS.primary : 'transparent',
     color: activeTab === tab ? '#fff' : DS.textSecondary,
-    cursor: 'pointer', borderRadius: 8,
-    fontWeight: activeTab === tab ? 600 : 400,
+    cursor: 'pointer', borderRadius: 8, fontWeight: activeTab === tab ? 600 : 400,
   })
 
   return (
@@ -219,6 +174,7 @@ export default function ClientPortalPage() {
       <nav style={{ background: DS.bgCard, borderBottom: `1px solid ${DS.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <a href="/" style={{ fontSize: 18, fontWeight: 700, color: DS.textPrimary, textDecoration: 'none' }}>
           ADRIA<span style={{ color: DS.primaryAccent, fontWeight: 300 }}>DRIVE</span>
+          <div style={{ fontSize: 9, color: '#4a90d9', letterSpacing: 2, fontWeight: 400 }}>BALKAN · RENT A CAR</div>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -227,17 +183,16 @@ export default function ClientPortalPage() {
             </div>
             <span style={{ fontSize: 13, color: DS.textPrimary, fontWeight: 500 }}>{client?.full_name || client?.email}</span>
           </div>
-          <button onClick={handleLogout} style={{ background: 'none', border: 'none', fontSize: 12, color: DS.textMuted, cursor: 'pointer', textDecoration: 'underline' }}>
-            Odjavi se
-          </button>
+          <button onClick={handleLogout} style={{ background: 'none', border: 'none', fontSize: 12, color: DS.textMuted, cursor: 'pointer', textDecoration: 'underline' }}>Odjavi se</button>
         </div>
       </nav>
 
       <main style={{ maxWidth: 860, margin: '0 auto', padding: '28px 16px 60px' }}>
-        <div style={{ display: 'flex', gap: 4, background: DS.bgSubtle, borderRadius: 10, padding: 4, marginBottom: 24, width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: 4, background: DS.bgSubtle, borderRadius: 10, padding: 4, marginBottom: 24, flexWrap: 'wrap' as const, width: 'fit-content' }}>
           <button style={tabStyle('reservations')} onClick={() => setActiveTab('reservations')}>Moje rezervacije</button>
           <button style={tabStyle('feedback')} onClick={() => setActiveTab('feedback')}>Ocjena</button>
           <button style={tabStyle('profile')} onClick={() => setActiveTab('profile')}>Profil</button>
+          <button style={tabStyle('contact')} onClick={() => setActiveTab('contact')}>Kontakt</button>
         </div>
 
         {/* REZERVACIJE */}
@@ -246,11 +201,8 @@ export default function ClientPortalPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ fontSize: 18, fontWeight: 600, color: DS.textPrimary, margin: 0 }}>Moje rezervacije</h2>
-                <a href="/" style={{ padding: '8px 18px', background: DS.primary, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                  + Nova
-                </a>
+                <a href="/" style={{ padding: '8px 18px', background: DS.primary, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>+ Nova</a>
               </div>
-
               {reservations.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 24px', border: `1px dashed ${DS.border}`, borderRadius: 12, color: DS.textMuted }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>🚗</div>
@@ -278,8 +230,6 @@ export default function ClientPortalPage() {
                 </>
               )}
             </div>
-
-            {/* Detail panel */}
             {selectedRez && (
               <div style={{ border: `1px solid ${DS.border}`, borderRadius: 12, background: DS.bgCard, alignSelf: 'start', position: 'sticky' as const, top: 16, maxHeight: '85vh', overflowY: 'auto' as const }}>
                 <div style={{ padding: '14px 16px', borderBottom: `1px solid ${DS.bgSubtle}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky' as const, top: 0, background: DS.bgCard }}>
@@ -289,15 +239,14 @@ export default function ClientPortalPage() {
                   </div>
                   <button onClick={() => setSelectedRez(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: DS.textMuted }}>✕</button>
                 </div>
-
                 <div style={{ padding: '14px 16px' }}>
                   {[
                     ['Status', (ST[selectedRez.status] || ST.pending).label],
                     ['Preuzimanje', `${selectedRez.pickup_date} u ${selectedRez.pickup_time?.slice(0, 5)}`],
                     ['Vraćanje', `${selectedRez.return_date} u ${selectedRez.return_time?.slice(0, 5)}`],
                     ['Lokacija', selectedRez.pickup_location],
-                    ['Vraćanje lokacija', selectedRez.dropoff_location || selectedRez.pickup_location],
-                    ['Osiguranje', selectedRez.insurance ? selectedRez.insurance === 'basic' ? 'Osnovno (AO)' : selectedRez.insurance === 'kasko_full' ? 'Full Kasko' : 'Kasko sa učešćem' : null],
+                    ['Vraćanje', selectedRez.dropoff_location || selectedRez.pickup_location],
+                    ['Osiguranje', selectedRez.insurance === 'basic' ? 'Osnovno (AO)' : selectedRez.insurance === 'kasko_full' ? 'Full Kasko' : selectedRez.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : null],
                     ['Van granice', selectedRez.border_crossing === 'allowed' ? '✅ Da' : selectedRez.border_crossing === 'forbidden' ? '🚫 Ne' : null],
                     ['Broj leta', selectedRez.flight_number],
                     ['Extras', selectedRez.extras_total ? `${selectedRez.extras_total}€` : null],
@@ -309,24 +258,16 @@ export default function ClientPortalPage() {
                       <span style={{ color: DS.textPrimary, fontWeight: 500, maxWidth: 180, textAlign: 'right' as const }}>{v}</span>
                     </div>
                   ))}
-
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', marginTop: 4, fontSize: 15, fontWeight: 700, borderTop: `1px solid ${DS.border}` }}>
                     <span>Ukupno</span>
                     <span style={{ color: DS.primary }}>{selectedRez.final_total || selectedRez.total_price}€</span>
                   </div>
-
-                  {/* Vozačka dozvola */}
                   {selectedRez.license_url && (
                     <div style={{ marginTop: 12, background: DS.primaryLight, border: `1px solid ${DS.borderBlue}`, borderRadius: 8, padding: '10px 12px' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: DS.primaryMid, marginBottom: 6 }}>📎 Vozačka dozvola</div>
-                      <a href={selectedRez.license_url} target="_blank" rel="noreferrer"
-                        style={{ fontSize: 12, color: DS.primaryMid, textDecoration: 'none', fontWeight: 600 }}>
-                        📄 Pogledaj dokument →
-                      </a>
+                      <a href={selectedRez.license_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: DS.primaryMid, textDecoration: 'none', fontWeight: 600 }}>📄 Pogledaj dokument →</a>
                     </div>
                   )}
-
-                  {/* Pending napomena */}
                   {selectedRez.status === 'pending' && (
                     <div style={{ marginTop: 12, background: '#FAEEDA', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#633806' }}>
                       ⏳ Vaš upit je primljen. Naš agent će vas uskoro kontaktirati radi potvrde vozila i detalja.
@@ -344,22 +285,16 @@ export default function ClientPortalPage() {
             <h2 style={{ fontSize: 18, fontWeight: 600, color: DS.textPrimary, marginBottom: 20 }}>Ocjena i feedback</h2>
             <div style={{ background: DS.bgCard, border: `1px solid ${DS.border}`, borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: DS.textPrimary, marginBottom: 4 }}>⭐ Google recenzija</div>
-              <p style={{ fontSize: 13, color: DS.textSecondary, marginBottom: 16, lineHeight: 1.6 }}>
-                Ako ste zadovoljni uslugom, molimo vas da nas ocijenite — to nam puno znači!
-              </p>
-              <a href={GOOGLE_REVIEW_URL} target="_blank" rel="noreferrer"
-                style={{ display: 'inline-block', padding: '10px 20px', background: '#4285F4', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+              <p style={{ fontSize: 13, color: DS.textSecondary, marginBottom: 16, lineHeight: 1.6 }}>Ako ste zadovoljni uslugom, molimo vas da nas ocijenite!</p>
+              <a href={GOOGLE_REVIEW_URL} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '10px 20px', background: '#4285F4', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
                 Ostavite recenziju na Google →
               </a>
             </div>
-
             <div style={{ background: DS.bgCard, border: `1px solid ${DS.border}`, borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: DS.textPrimary, marginBottom: 4 }}>💬 Privatni feedback</div>
               <div style={{ fontSize: 12, color: DS.textMuted, marginBottom: 16 }}>Vaše mišljenje vidimo samo mi</div>
               {feedbackSent ? (
-                <div style={{ background: DS.primaryLight, border: `1px solid ${DS.borderBlue}`, borderRadius: 8, padding: '14px', fontSize: 13, color: DS.primaryMid, textAlign: 'center' as const }}>
-                  Hvala na feedbacku! 🙏
-                </div>
+                <div style={{ background: DS.primaryLight, border: `1px solid ${DS.borderBlue}`, borderRadius: 8, padding: '14px', fontSize: 13, color: DS.primaryMid, textAlign: 'center' as const }}>Hvala na feedbacku! 🙏</div>
               ) : (
                 <>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -370,8 +305,7 @@ export default function ClientPortalPage() {
                     ))}
                   </div>
                   <textarea value={feedbackComment} onChange={e => setFeedbackComment(e.target.value)} placeholder="Šta vam se svidjelo? Šta možemo poboljšati?" style={{ ...inp, minHeight: 100, resize: 'vertical' as const, marginBottom: 12 }} />
-                  <button onClick={sendFeedback} disabled={feedbackSending || !feedbackComment.trim()}
-                    style={{ padding: '10px 20px', background: !feedbackComment.trim() ? DS.textMuted : DS.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: !feedbackComment.trim() ? 'not-allowed' : 'pointer' }}>
+                  <button onClick={sendFeedback} disabled={feedbackSending || !feedbackComment.trim()} style={{ padding: '10px 20px', background: !feedbackComment.trim() ? DS.textMuted : DS.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: !feedbackComment.trim() ? 'not-allowed' : 'pointer' }}>
                     {feedbackSending ? 'Slanje...' : 'Pošalji'}
                   </button>
                 </>
@@ -394,7 +328,6 @@ export default function ClientPortalPage() {
                   <div style={{ fontSize: 13, color: DS.textMuted }}>{client?.email}</div>
                 </div>
               </div>
-
               {editProfile ? (
                 <>
                   {[
@@ -408,20 +341,14 @@ export default function ClientPortalPage() {
                   ].map(([label, field, type, placeholder]) => (
                     <div key={field} style={{ marginBottom: 12 }}>
                       <label style={{ fontSize: 12, color: DS.textSecondary, display: 'block', marginBottom: 4 }}>{label}</label>
-                      <input type={type} style={inp} placeholder={placeholder}
-                        value={(profileForm as any)[field]}
-                        onChange={e => setProfileForm(f => ({ ...f, [field]: e.target.value }))} />
+                      <input type={type} style={inp} placeholder={placeholder} value={(profileForm as any)[field]} onChange={e => setProfileForm(f => ({ ...f, [field]: e.target.value }))} />
                     </div>
                   ))}
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                    <button onClick={saveProfile} disabled={profileSaving}
-                      style={{ flex: 1, padding: '9px', background: DS.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    <button onClick={saveProfile} disabled={profileSaving} style={{ flex: 1, padding: '9px', background: DS.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                       {profileSaving ? 'Snimanje...' : 'Sačuvaj'}
                     </button>
-                    <button onClick={() => setEditProfile(false)}
-                      style={{ flex: 1, padding: '9px', background: 'transparent', border: `1px solid ${DS.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: DS.textSecondary }}>
-                      Odustani
-                    </button>
+                    <button onClick={() => setEditProfile(false)} style={{ flex: 1, padding: '9px', background: 'transparent', border: `1px solid ${DS.border}`, borderRadius: 8, fontSize: 13, cursor: 'pointer', color: DS.textSecondary }}>Odustani</button>
                   </div>
                 </>
               ) : (
@@ -439,8 +366,7 @@ export default function ClientPortalPage() {
                       <span style={{ color: DS.textPrimary, fontWeight: 500 }}>{v || '—'}</span>
                     </div>
                   ))}
-                  <button onClick={() => setEditProfile(true)}
-                    style={{ marginTop: 16, padding: '9px 20px', border: `1px solid ${DS.border}`, borderRadius: 8, background: 'transparent', fontSize: 13, cursor: 'pointer', color: DS.textSecondary }}>
+                  <button onClick={() => setEditProfile(true)} style={{ marginTop: 16, padding: '9px 20px', border: `1px solid ${DS.border}`, borderRadius: 8, background: 'transparent', fontSize: 13, cursor: 'pointer', color: DS.textSecondary }}>
                     Uredi profil
                   </button>
                 </>
@@ -448,7 +374,43 @@ export default function ClientPortalPage() {
             </div>
           </div>
         )}
+
+        {/* KONTAKT */}
+        {activeTab === 'contact' && (
+          <div style={{ maxWidth: 480 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: DS.textPrimary, marginBottom: 20 }}>Kontakt</h2>
+            <div style={{ background: DS.bgCard, border: `1px solid ${DS.border}`, borderRadius: 12, padding: '24px' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: DS.textPrimary, marginBottom: 4 }}>AdriaDrive</div>
+              <div style={{ fontSize: 12, color: DS.textMuted, marginBottom: 20 }}>Rent a Car — Balkan</div>
+              {[
+                { icon: '📞', label: 'Telefon', value: '+382 69 810 805', href: 'tel:+38269810805' },
+                { icon: '💬', label: 'WhatsApp', value: '+382 69 810 805', href: 'https://wa.me/38269810805' },
+                { icon: '✉️', label: 'Email', value: 'info@rent-cars.me', href: 'mailto:info@rent-cars.me' },
+                { icon: '📍', label: 'Adresa', value: 'Bulevar Veljka Vlahovića 16, Podgorica', href: null },
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: `1px solid ${DS.bgSubtle}` }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: DS.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
+                  <div>
+                    <div style={{ fontSize: 11, color: DS.textMuted }}>{item.label}</div>
+                    {item.href
+                      ? <a href={item.href} style={{ fontSize: 14, fontWeight: 500, color: DS.primary, textDecoration: 'none' }}>{item.value}</a>
+                      : <div style={{ fontSize: 14, fontWeight: 500, color: DS.textPrimary }}>{item.value}</div>}
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 16, padding: '12px 14px', background: DS.primaryLight, borderRadius: 8, fontSize: 12, color: DS.primaryMid }}>
+                🕐 Radno vrijeme: <strong>Pon–Ned 08:00–22:00</strong>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      <footer style={{ background: DS.primaryDark, padding: '24px', textAlign: 'center' as const }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>ADRIA<span style={{ fontWeight: 300, color: '#7ab8f5' }}>DRIVE</span></div>
+        <div style={{ fontSize: 10, color: '#4a90d9', letterSpacing: 3, marginTop: 4 }}>BALKAN · RENT A CAR</div>
+        <div style={{ fontSize: 11, color: '#4a90d9', marginTop: 8 }}>© 2025 AdriaDrive · rent-cars.me</div>
+      </footer>
     </div>
   )
 }
