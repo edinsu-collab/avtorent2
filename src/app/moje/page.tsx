@@ -387,8 +387,9 @@ export default function ClientPortalPage() {
   return (
     <div style={{ minHeight: '100vh', background: DS.bgPage, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <nav style={{ background: DS.bgCard, borderBottom: `1px solid ${DS.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <a href="/" style={{ fontSize: 18, fontWeight: 700, color: DS.textPrimary, textDecoration: 'none' }}>
-          PLANET<span style={{ color: DS.primaryAccent, fontWeight: 300 }}>RENTACAR</span>
+        <a href="/" style={{ textDecoration: 'none' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: DS.textPrimary }}>ADRIA<span style={{ color: DS.primaryAccent, fontWeight: 300 }}>DRIVE</span></div>
+          <div style={{ fontSize: 9, color: '#4a90d9', letterSpacing: 2 }}>BALKAN · RENT A CAR</div>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -517,11 +518,11 @@ export default function ClientPortalPage() {
           <div style={{ maxWidth: 480 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: DS.textPrimary, marginBottom: 20 }}>Kontakt</h2>
             <div style={{ background: DS.bgCard, border: `1px solid ${DS.border}`, borderRadius: 12, padding: '24px' }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: DS.textPrimary, marginBottom: 16 }}>Planet Rent a Car</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: DS.textPrimary, marginBottom: 16 }}>AdriaDrive</div>
               {[
-                { icon: '📞', label: 'Telefon', value: '+382 69 810 805', href: 'tel:+38269810805' },
+                { icon: '📞', label: 'Phone', value: '+382 69 810 805', href: 'tel:+38269810805' },
                 { icon: '💬', label: 'WhatsApp', value: '+382 69 810 805', href: 'https://wa.me/38269810805' },
-                { icon: '✉️', label: 'Email', value: 'info@planetrentacar.me', href: 'mailto:info@planetrentacar.me' },
+                { icon: '✉️', label: 'Email', value: 'info@rent-cars.me', href: 'mailto:info@rent-cars.me' },
                 { icon: '📍', label: 'Adresa', value: 'Bulevar Veljka Vlahovića 16, Podgorica', href: null },
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: `1px solid ${DS.bgSubtle}` }}>
@@ -851,6 +852,16 @@ export default function ClientPortalPage() {
           </div>
         </div>
       )}
+      <footer style={{ background: '#0e2d5e', padding: '24px', textAlign: 'center' as const, marginTop: 40 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>ADRIA<span style={{ fontWeight: 300, color: '#7ab8f5' }}>DRIVE</span></div>
+        <div style={{ fontSize: 10, color: '#4a90d9', letterSpacing: 3, marginTop: 4 }}>BALKAN · RENT A CAR</div>
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8 }}>
+          <a href="tel:+38269810805" style={{ fontSize: 12, color: '#7ab8f5', textDecoration: 'none' }}>📞 +382 69 810 805</a>
+          <a href="https://wa.me/38269810805" style={{ fontSize: 12, color: '#7ab8f5', textDecoration: 'none' }}>💬 WhatsApp</a>
+          <a href="mailto:info@rent-cars.me" style={{ fontSize: 12, color: '#7ab8f5', textDecoration: 'none' }}>✉️ info@rent-cars.me</a>
+        </div>
+        <div style={{ fontSize: 11, color: '#4a90d9', marginTop: 8 }}>© 2025 AdriaDrive · rent-cars.me</div>
+      </footer>
     </div>
   )
 }
