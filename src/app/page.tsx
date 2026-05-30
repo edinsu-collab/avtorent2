@@ -91,9 +91,9 @@ function HomePageContent() {
       const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
       return match ? decodeURIComponent(match[1]) : ''
     }
-    const clientEmail = getCookie('avtorent-client-email')
-    if (clientEmail) {
-      supabaseClient.from('clients').select('first_name, full_name, email').eq('email', clientEmail).single()
+    const _clientEmail = getCookie('avtorent-client-email')
+    if (_clientEmail) {
+      supabaseClient.from('clients').select('first_name, full_name, email').eq('email', _clientEmail).single()
         .then(({ data }) => {
           if (data) setLoggedInName(data.first_name || data.full_name?.split(' ')[0] || data.email?.split('@')[0] || null)
         })
@@ -115,7 +115,7 @@ function HomePageContent() {
     }
     const clientEmail = getCookie('avtorent-client-email')
     if (clientEmail) {
-      supabase.from('clients').select('full_name, first_name, last_name, email').eq('email', clientEmail).single()
+      supabase.from('clients').select('full_name, first_name, last_name, email').eq('email', _clientEmail).single()
         .then(({ data: c }) => {
           if (c) setLoggedInUser({
             email: c.email,
