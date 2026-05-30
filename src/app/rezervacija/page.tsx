@@ -110,12 +110,17 @@ function BookingPageContent() {
       setLoggedInClient(data)
       setForm(f => ({
         ...f,
+        // Ime — spoji first+last ili full_name
         guestName: f.guestName || [data.first_name, data.last_name].filter(Boolean).join(' ') || data.full_name || '',
         guestEmail: f.guestEmail || data.email || '',
-        guestPhone: f.guestPhone || data.phone || '',
+        // Telefon — provjeri sve moguće kolone
+        guestPhone: f.guestPhone || data.phone || data.phone2 || '',
+        // Nacionalnost
         guestNationality: f.guestNationality || data.nationality || '',
+        // Datum rođenja
         guestDob: f.guestDob || data.date_of_birth || '',
-        guestLicense: f.guestLicense || data.licence_number || '',
+        // Vozačka
+        guestLicense: f.guestLicense || data.licence_number || data.licence_number_old || '',
       }))
     })
   }, [])
@@ -725,4 +730,3 @@ export default function BookingPage() {
     </Suspense>
   )
 }
-
