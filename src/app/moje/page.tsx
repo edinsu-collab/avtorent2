@@ -521,6 +521,7 @@ export default function ClientPortalPage() {
               <h2 style={{ fontSize: 18, fontWeight: 600, color: DS.textPrimary, margin: 0 }}>Moje rezervacije</h2>
               <a href="/" style={{ padding: '8px 18px', background: DS.primary, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>+ Nova</a>
             </div>
+            {client && <LoyaltyCard client={client} reservations={reservations} />}
             {reservations.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 24px', border: `1px dashed ${DS.border}`, borderRadius: 12, color: DS.textMuted }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🚗</div>
@@ -978,6 +979,4 @@ export default function ClientPortalPage() {
       </footer>
     </div>
   )
-
-  
 }
