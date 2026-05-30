@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { translations, type Lang } from '@/lib/i18n'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 // Lang is now: 'sr' | 'en' | 'de' | 'tr' | 'es' | 'fr' | 'ar' | 'ru'
 import { calculateDays } from '@/lib/pricing'
 
@@ -40,6 +46,8 @@ function HomePageContent() {
   const [dropoffLocationId, setDropoffLocationId] = useState('')
   const [dropoffCustom, setDropoffCustom] = useState('')
   const [dateError, setDateError] = useState('')
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; email: string } | null>(null)
+  const [loggedInName, setLoggedInName] = useState<string | null>(null)
   const tr = translations[lang]
 
   useEffect(() => {
@@ -77,6 +85,20 @@ function HomePageContent() {
       }).catch(() => {})
     }
 
+    // Check if client is logged in
+    function getCookie(name: string): string {
+      if (typeof document === 'undefined') return ''
+      const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
+      return match ? decodeURIComponent(match[1]) : ''
+    }
+    const clientEmail = getCookie('avtorent-client-email')
+    if (clientEmail) {
+      supabaseClient.from('clients').select('first_name, full_name, email').eq('email', clientEmail).single()
+        .then(({ data }) => {
+          if (data) setLoggedInName(data.first_name || data.full_name?.split(' ')[0] || data.email?.split('@')[0] || null)
+        })
+    }
+
     const bl = navigator.language.slice(0, 2)
     const langMap: Record<string, Lang> = {
       'de': 'de', 'en': 'en', 'tr': 'tr', 'es': 'es',
@@ -84,6 +106,23 @@ function HomePageContent() {
     }
     if (langMap[bl]) setLang(langMap[bl])
     else setLang('en')
+
+    // Provjeri je li klijent ulogovan
+    function getCookie(name: string): string {
+      if (typeof document === 'undefined') return ''
+      const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
+      return match ? decodeURIComponent(match[1]) : ''
+    }
+    const clientEmail = getCookie('avtorent-client-email')
+    if (clientEmail) {
+      supabase.from('clients').select('full_name, first_name, last_name, email').eq('email', clientEmail).single()
+        .then(({ data: c }) => {
+          if (c) setLoggedInUser({
+            email: c.email,
+            name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || c.email,
+          })
+        })
+    }
   }, [searchParams])
 
   // Auto-fix return date if pickup moves later
@@ -226,14 +265,39 @@ function HomePageContent() {
           <a href="/faq" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>FAQ</a>
           <a href="/kontakt" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}>{lang === 'sr' ? 'Kontakt' : 'Contact'}</a>
           <a href="/blog" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none', fontWeight: 500 }}>Blog</a>
+          {loggedInName
+            ? <a href="/moje" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', background: '#E6F1FB', borderRadius: 20, padding: '5px 12px 5px 6px' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#1a56a0', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                  {loggedInName[0].toUpperCase()}
+                </div>
+                <span style={{ fontSize: 12, color: '#185FA5', fontWeight: 600 }}>{loggedInName}</span>
+              </a>
+            : <a href="/moje/login" style={{ fontSize: 13, color: '#1a56a0', textDecoration: 'none', fontWeight: 600, padding: '5px 12px', border: '1px solid #c5d9f5', borderRadius: 20 }}>
+                {lang === 'de' ? 'Anmelden' : lang === 'ru' ? 'Войти' : lang === 'tr' ? 'Giriş' : 'Login'}
+              </a>
+          }
         </div>
-        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' as const, maxWidth: 280, justifyContent: 'flex-end' }}>
-          {([['sr','SR'],['en','EN'],['de','DE'],['tr','TR'],['es','ES'],['fr','FR'],['ar','AR'],['ru','RU']] as [Lang,string][]).map(([l, label]) => (
-            <button key={l} onClick={() => setLang(l)}
-              style={{ padding: '3px 8px', fontSize: 11, borderRadius: 20, border: '1px solid', borderColor: lang === l ? primaryColor : '#e5e7eb', background: lang === l ? `${primaryColor}22` : 'transparent', color: lang === l ? primaryColor : '#6b7280', cursor: 'pointer', fontWeight: lang === l ? 700 : 400, direction: l === 'ar' ? 'rtl' : 'ltr' }}>
-              {label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' as const, maxWidth: 240, justifyContent: 'flex-end' }}>
+            {([['sr','SR'],['en','EN'],['de','DE'],['tr','TR'],['es','ES'],['fr','FR'],['ar','AR'],['ru','RU']] as [Lang,string][]).map(([l, label]) => (
+              <button key={l} onClick={() => setLang(l)}
+                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 20, border: '1px solid', borderColor: lang === l ? primaryColor : '#e5e7eb', background: lang === l ? `${primaryColor}22` : 'transparent', color: lang === l ? primaryColor : '#6b7280', cursor: 'pointer', fontWeight: lang === l ? 700 : 400, direction: l === 'ar' ? 'rtl' : 'ltr' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {loggedInUser ? (
+            <a href="/moje" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#E6F1FB', border: '1px solid #c5d9f5', borderRadius: 20, textDecoration: 'none' }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#1a56a0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                {(loggedInUser.name[0] || '?').toUpperCase()}
+              </div>
+              <span style={{ fontSize: 11, color: '#1a56a0', fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{loggedInUser.name.split(' ')[0]}</span>
+            </a>
+          ) : (
+            <a href="/moje/login" style={{ padding: '5px 12px', background: '#1a56a0', color: '#fff', borderRadius: 20, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}>
+              {lang === 'de' ? 'Anmelden' : lang === 'ru' ? 'Войти' : lang === 'tr' ? 'Giriş' : lang === 'ar' ? 'تسجيل الدخول' : 'Log in'}
+            </a>
+          )}
         </div>
       </nav>
 
