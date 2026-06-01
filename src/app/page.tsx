@@ -237,16 +237,16 @@ function HomePageContent() {
       })
 
   // Categories — no icons (consistent)
-  const CATEGORIES = [
-    ['all', 'Sve'],
+  const CATEGORIES: [string, string][] = [
+    ['all', lang === 'sr' ? 'Sve' : lang === 'de' ? 'Alle' : lang === 'ru' ? 'Все' : lang === 'tr' ? 'Tümü' : lang === 'fr' ? 'Tous' : lang === 'es' ? 'Todos' : lang === 'ar' ? 'الكل' : 'All'],
     ['Hatchback', 'Hatchback'],
     ['Medium', 'Medium'],
     ['Sedan', 'Sedan'],
     ['SUV', 'SUV'],
-    ['Station Wagon', 'Karavan'],
-    ['Luxury', 'Luxury'],
+    ['Station Wagon', lang === 'de' ? 'Kombi' : lang === 'sr' ? 'Karavan' : 'Wagon'],
+    ['Luxury', lang === 'de' ? 'Luxus' : 'Luxury'],
     ['Van', 'Van'],
-    ['Convertible', 'Cabrio'],
+    ['Convertible', lang === 'de' ? 'Cabrio' : lang === 'sr' ? 'Kabriolet' : 'Convertible'],
   ]
 
   return (
@@ -403,7 +403,7 @@ function HomePageContent() {
 
           {days && !dateError && (
             <div style={{ marginTop: 10, fontSize: 13, color: '#6b7280' }}>
-              {tr.duration}: <strong style={{ color: '#111' }}>{days} {days === 1 ? 'dan' : 'dana'}</strong>
+              {tr.duration}: <strong style={{ color: '#111' }}>{days} {lang === 'en' ? (days === 1 ? 'day' : 'days') : lang === 'de' ? (days === 1 ? 'Tag' : 'Tage') : lang === 'ru' ? 'дн.' : (days === 1 ? 'dan' : 'dana')}</strong>
               {transferFee > 0 && <span style={{ marginLeft: 12, color: '#BA7517' }}>+ {transferFee}€ transfer</span>}
             </div>
           )}
