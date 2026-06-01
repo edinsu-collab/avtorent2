@@ -50,6 +50,24 @@ function HomePageContent() {
   const [loggedInName, setLoggedInName] = useState<string | null>(null)
   const tr = translations[lang]
 
+  // ── Satnica: izbor na pola sata, bez prošlih termina ──
+  const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
+  function localToday() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0] }
+  function nextHalfHour() {
+    const d = new Date(); let h = d.getHours(); let m = d.getMinutes()
+    if (m === 0) m = 0; else if (m <= 30) m = 30; else { h += 1; m = 0 }
+    if (h > 23) return '23:30'
+    return `${String(h).padStart(2, '0')}:${m === 30 ? '30' : '00'}`
+  }
+  function slotsFor(dateVal: string, isReturn = false) {
+    let slots = TIME_SLOTS
+    if (dateVal && dateVal === localToday()) { const min = nextHalfHour(); slots = slots.filter(s => s >= min) }
+    if (isReturn && dateVal && dateVal === pickupDate) slots = slots.filter(s => s >= pickupTime)
+    return slots.length ? slots : TIME_SLOTS
+  }
+  // Kad se bira vrijeme preuzimanja — isti sat se prebaci na vraćanje
+  function handlePickupTimeChange(val: string) { setPickupTime(val); setReturnTime(val) }
+
   useEffect(() => {
     const script = document.createElement('script')
     script.src = 'https://app.trysoro.com/api/embed/16773211-0733-4454-87cc-ebd145c43c1b'
@@ -67,6 +85,8 @@ function HomePageContent() {
     nextWeek.setDate(today.getDate() + 7)
     setPickupDate(today.toISOString().split('T')[0])
     setReturnDate(nextWeek.toISOString().split('T')[0])
+    const defTime = nextHalfHour() > '10:00' ? nextHalfHour() : '10:00'
+    setPickupTime(defTime); setReturnTime(defTime)
 
     fetch('/api/locations').then(r => r.json()).then(d => {
       setLocations(d.locations || [])
@@ -124,6 +144,11 @@ function HomePageContent() {
   function handlePickupDateChange(val: string) {
     setPickupDate(val)
     setDateError('')
+    // ako je danas i izabrano vrijeme je prošlo — pomjeri na prvi naredni termin
+    if (val === localToday()) {
+      const min = nextHalfHour()
+      if (pickupTime < min) { setPickupTime(min); setReturnTime(prev => (prev < min ? min : prev)) }
+    }
     if (returnDate && val > returnDate) {
       // Auto-advance return date by same offset
       const diff = new Date(returnDate).getTime() - new Date(pickupDate).getTime()
@@ -139,6 +164,7 @@ function HomePageContent() {
     }
     setDateError('')
     setReturnDate(val)
+    if (val === pickupDate && returnTime < pickupTime) setReturnTime(pickupTime)
   }
 
   const fetchVehicles = useCallback(() => {
@@ -381,7 +407,9 @@ function HomePageContent() {
             </div>
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.pickupTime}</label>
-              <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} style={inp} />
+              <select value={pickupTime} onChange={e => handlePickupTimeChange(e.target.value)} style={inp}>
+                {slotsFor(pickupDate).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.returnDate}</label>
@@ -392,7 +420,9 @@ function HomePageContent() {
             </div>
             <div>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.returnTime}</label>
-              <input type="time" value={returnTime} onChange={e => setReturnTime(e.target.value)} style={inp} />
+              <select value={returnTime} onChange={e => setReturnTime(e.target.value)} style={inp}>
+                {slotsFor(returnDate, true).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <button onClick={fetchVehicles} disabled={!!dateError}
