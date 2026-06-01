@@ -103,7 +103,20 @@ function HomePageContent() {
     else setLang('en')
 
     // Provjeri je li klijent ulogovan
-    function getCookie(name: string): string {
+    // Prijevod naziva zemlje za lokacije
+function translateCountry(country: string, lang: string): string {
+  const MAP: Record<string, Record<string, string>> = {
+    'Crna Gora': { en: 'Montenegro', de: 'Montenegro', ru: 'Черногория', tr: 'Karadağ', fr: 'Monténégro', es: 'Montenegro', ar: 'الجبل الأسود' },
+    'Srbija': { en: 'Serbia', de: 'Serbien', ru: 'Сербия', tr: 'Sırbistan', fr: 'Serbie', es: 'Serbia', ar: 'صربيا' },
+    'Bosna i Hercegovina': { en: 'Bosnia & Herzegovina', de: 'Bosnien-Herzegowina', ru: 'Босния и Герцеговина', tr: 'Bosna Hersek', fr: 'Bosnie-Herzégovine', es: 'Bosnia y Herzegovina', ar: 'البوسنة والهرسك' },
+    'Albanija': { en: 'Albania', de: 'Albanien', ru: 'Албания', tr: 'Arnavutluk', fr: 'Albanie', es: 'Albania', ar: 'ألبانيا' },
+    'Hrvatska': { en: 'Croatia', de: 'Kroatien', ru: 'Хорватия', tr: 'Hırvatistan', fr: 'Croatie', es: 'Croacia', ar: 'كرواتيا' },
+  }
+  if (lang === 'sr') return country
+  return MAP[country]?.[lang] || country
+}
+
+function getCookie(name: string): string {
       if (typeof document === 'undefined') return ''
       const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
       return match ? decodeURIComponent(match[1]) : ''
@@ -328,12 +341,12 @@ function HomePageContent() {
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.pickupLoc}</label>
               <select value={pickupLocationId} onChange={e => setPickupLocationId(e.target.value)} style={inp}>
-                <option value="">-- Odaberi lokaciju --</option>
-                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.country})</option>)}
-                <option value="custom">Druga adresa</option>
+                <option value="">{lang === 'sr' ? '-- Odaberi lokaciju --' : lang === 'de' ? '-- Standort wählen --' : lang === 'ru' ? '-- Выберите локацию --' : lang === 'tr' ? '-- Konum seçin --' : lang === 'fr' ? '-- Choisir un lieu --' : lang === 'es' ? '-- Elegir ubicación --' : lang === 'ar' ? '-- اختر الموقع --' : '-- Select location --'}</option>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({translateCountry(l.country, lang)})</option>)}
+                <option value="custom">{lang === 'sr' ? 'Druga adresa' : lang === 'de' ? 'Andere Adresse' : lang === 'ru' ? 'Другой адрес' : lang === 'tr' ? 'Başka adres' : lang === 'fr' ? 'Autre adresse' : lang === 'es' ? 'Otra dirección' : lang === 'ar' ? 'عنوان آخر' : 'Other address'}</option>
               </select>
               {pickupLocationId === 'custom' && (
-                <input value={pickupCustom} onChange={e => setPickupCustom(e.target.value)} placeholder="Unesite adresu preuzimanja..." style={{ ...inp, marginTop: 6 }} />
+                <input value={pickupCustom} onChange={e => setPickupCustom(e.target.value)} placeholder={lang === 'sr' ? 'Unesite adresu preuzimanja...' : lang === 'de' ? 'Abholadresse eingeben...' : lang === 'ru' ? 'Введите адрес получения...' : lang === 'tr' ? 'Teslim adresini girin...' : lang === 'fr' ? 'Adresse de prise en charge...' : lang === 'es' ? 'Dirección de recogida...' : lang === 'ar' ? 'أدخل عنوان الاستلام...' : 'Enter pickup address...'} style={{ ...inp, marginTop: 6 }} />
               )}
             </div>
 
@@ -350,13 +363,13 @@ function HomePageContent() {
                   <button onClick={() => { setDifferentDropoff(false); setDropoffLocationId(''); setDropoffCustom('') }} style={{ fontSize: 11, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>Ukloni</button>
                 </div>
                 <select value={dropoffLocationId} onChange={e => setDropoffLocationId(e.target.value)} style={inp}>
-                  <option value="">-- Odaberi lokaciju --</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.country})</option>)}
-                  <option value="custom">Druga adresa</option>
+                  <option value="">{lang === 'sr' ? '-- Odaberi lokaciju --' : lang === 'de' ? '-- Standort wählen --' : lang === 'ru' ? '-- Выберите локацию --' : lang === 'tr' ? '-- Konum seçin --' : lang === 'fr' ? '-- Choisir un lieu --' : lang === 'es' ? '-- Elegir ubicación --' : lang === 'ar' ? '-- اختر الموقع --' : '-- Select location --'}</option>
+                  {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({translateCountry(l.country, lang)})</option>)}
+                  <option value="custom">{lang === 'sr' ? 'Druga adresa' : lang === 'de' ? 'Andere Adresse' : lang === 'ru' ? 'Другой адрес' : lang === 'tr' ? 'Başka adres' : lang === 'fr' ? 'Autre adresse' : lang === 'es' ? 'Otra dirección' : lang === 'ar' ? 'عنوان آخر' : 'Other address'}</option>
                 </select>
                 {dropoffLocationId === 'custom' && (
                   <>
-                    <input value={dropoffCustom} onChange={e => setDropoffCustom(e.target.value)} placeholder="Unesite adresu vraćanja..." style={{ ...inp, marginTop: 6 }} />
+                    <input value={dropoffCustom} onChange={e => setDropoffCustom(e.target.value)} placeholder={lang === 'sr' ? 'Unesite adresu vraćanja...' : lang === 'de' ? 'Rückgabeadresse eingeben...' : lang === 'ru' ? 'Введите адрес возврата...' : lang === 'tr' ? 'İade adresini girin...' : lang === 'fr' ? 'Adresse de retour...' : lang === 'es' ? 'Dirección de devolución...' : lang === 'ar' ? 'أدخل عنوان الإرجاع...' : 'Enter return address...'} style={{ ...inp, marginTop: 6 }} />
                     <div style={{ fontSize: 11, color: '#BA7517', marginTop: 4, padding: '6px 10px', background: '#FAEEDA', borderRadius: 6 }}>
                       Dostava na custom adresi može biti podložna dodatnoj naplati.
                     </div>
