@@ -38,6 +38,15 @@ const NATIONALITIES = [
   'Italy', 'France', 'UK', 'USA', 'Russia', 'Turkey', 'UAE', 'Other',
 ]
 
+// Pozivni brojevi po zemlji — za auto-prefiks telefona
+const DIAL_CODES: Record<string, string> = {
+  'Montenegro': '+382', 'Serbia': '+381', 'Bosnia and Herzegovina': '+387',
+  'Croatia': '+385', 'Slovenia': '+386', 'North Macedonia': '+389',
+  'Albania': '+355', 'Germany': '+49', 'Austria': '+43', 'Switzerland': '+41',
+  'Italy': '+39', 'France': '+33', 'UK': '+44', 'USA': '+1',
+  'Russia': '+7', 'Turkey': '+90', 'UAE': '+971',
+}
+
 function BookingPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -147,6 +156,36 @@ function BookingPageContent() {
           guestLicense: c.licence_number || f.guestLicense,
         }))
       })
+  }, [])
+
+  // Auto-detekcija zemlje po IP adresi → pre-popuni nacionalnost + telefon prefiks
+  useEffect(() => {
+    // Mapa ISO kod → naziv zemlje u našoj listi
+    const ISO_TO_NAME: Record<string, string> = {
+      'ME': 'Montenegro', 'RS': 'Serbia', 'BA': 'Bosnia and Herzegovina',
+      'HR': 'Croatia', 'SI': 'Slovenia', 'MK': 'North Macedonia',
+      'AL': 'Albania', 'DE': 'Germany', 'AT': 'Austria', 'CH': 'Switzerland',
+      'IT': 'Italy', 'FR': 'France', 'GB': 'UK', 'US': 'USA',
+      'RU': 'Russia', 'TR': 'Turkey', 'AE': 'UAE',
+    }
+    fetch('https://ipapi.co/json/')
+      .then(r => r.json())
+      .then(d => {
+        const countryName = ISO_TO_NAME[d.country_code]
+        if (!countryName) return
+        const dial = DIAL_CODES[countryName] || ''
+        setForm(f => {
+          // Ne prebrisuj ako je korisnik već ulogovan/popunio
+          const natEmpty = !f.guestNationality
+          const phoneEmpty = !f.guestPhone.trim() || /^\+\d{1,4}\s*$/.test(f.guestPhone.trim())
+          return {
+            ...f,
+            guestNationality: natEmpty ? countryName : f.guestNationality,
+            guestPhone: (natEmpty && phoneEmpty && dial) ? dial + ' ' : f.guestPhone,
+          }
+        })
+      })
+      .catch(() => {}) // tiho ignoriši ako geo-IP ne radi
   }, [])
 
   useEffect(() => {
@@ -417,7 +456,15 @@ function BookingPageContent() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={lbl}>{L.nationality} *</label>
-                  <select style={inp(errors.guestNationality)} value={form.guestNationality} onChange={e => setForm(f => ({ ...f, guestNationality: e.target.value }))}>
+                  <select style={inp(errors.guestNationality)} value={form.guestNationality} onChange={e => {
+                    const nat = e.target.value
+                    const dial = DIAL_CODES[nat] || ''
+                    setForm(f => {
+                      // Pre-popuni prefiks telefona samo ako je prazan ili sadrži samo prefiks
+                      const phoneEmpty = !f.guestPhone.trim() || /^\+\d{1,4}\s*$/.test(f.guestPhone.trim())
+                      return { ...f, guestNationality: nat, guestPhone: phoneEmpty && dial ? dial + ' ' : f.guestPhone }
+                    })
+                  }}>
                     <option value="">-- Select --</option>
                     {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
