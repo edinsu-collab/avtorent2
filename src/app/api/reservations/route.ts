@@ -36,12 +36,12 @@ export async function POST(req: NextRequest) {
     // Pronađi ime vozila i license_plate
     let resolvedVehicleName = vehicleName || vehicleId || 'Unknown vehicle'
     let resolvedVehiclePlate: string | null = null
+    let _logs: string[] = []
+    const _log = (msg: string) => { console.log(msg); _logs.push(msg) }
 
     if (vehicleId && vehicleId.includes('__')) {
       const parts = vehicleId.split('__')
       const [marka, model, year] = parts
-      const _logs: string[] = []
-      const _log = (msg: string) => { console.log(msg); _logs.push(msg) }
       _log(`VEHICLE SELECTION START: vehicleId=${vehicleId} marka=${marka} model=${model} year=${year} pickupLocation=${pickupLocation} pickupDate=${pickupDate} returnDate=${returnDate}`)
       if (marka && model) {
         // 1. Nađi sve vozila iste grupe u odgovarajućoj regiji
@@ -180,8 +180,7 @@ export async function POST(req: NextRequest) {
               resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
               resolvedVehiclePlate = null
             }
-            // Snimi log u bazu
-            await supabase.from('logovi').insert([{ akcija: `[API-LOG] ${_logs.join(' | ')}` }])
+            // Log se dodaje u napomenu rezervacije pri kreiranju
           } else {
             // Sva vozila zauzeta — samo ime bez plate
             resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
@@ -289,7 +288,7 @@ export async function POST(req: NextRequest) {
       dropoff_location: dropoffLocation || null,
       transfer_fee: transferFee || 0,
       site_domain: siteDomain || 'rent-cars.me',
-      notes,
+      notes: typeof _logs !== 'undefined' && _logs.length > 0 ? `[LOG] ${_logs.join(' | ')}` : (notes || null),
       base_price: finalBasePrice,
       extras_total: extrasTotal,
       total_price: finalTotal,
