@@ -52,18 +52,22 @@ export async function POST(req: NextRequest) {
 
         if (fleetVehicles && fleetVehicles.length > 0) {
           // Učitaj kalendar (zauzeća) za sve tablice ovih vozila
-          const plates = fleetVehicles.map(v => v.license_plate)
-          const { data: occupied } = await supabase
-            .from('rezervacije')
-            .select('br_tablica, od_datuma, do_datuma')
-            .in('br_tablica', plates)
+          const plates = fleetVehicles.map((v: any) => v.license_plate).filter(Boolean)
+          let occupied: any[] = []
+          if (plates.length > 0) {
+            const { data: occ } = await supabase
+              .from('rezervacije')
+              .select('br_tablica, od_datuma, do_datuma')
+              .in('br_tablica', plates)
+            occupied = occ || []
+          }
 
           // ═══ PAMETNI ODABIR VOZILA: traži rupu koja se najtočnije uklapa ═══
           const reqDays = Math.max(1, Math.ceil(
             (new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000
           ))
 
-          type VehicleScore = { vehicle: typeof fleetVehicles[0]; score: number; gapDays: number }
+          type VehicleScore = { vehicle: any; score: number; gapDays: number }
           const scores: VehicleScore[] = []
 
           for (const v of fleetVehicles) {
@@ -249,6 +253,18 @@ export async function POST(req: NextRequest) {
 
     // Extras
     // ═══ Auto-kreiraj zapis u kalendar (rezervacije tabela) ═══
+    // Fallback: ako plate nije nađen, uzmi iz vehicleId
+    if (!resolvedVehiclePlate && vehicleId && !vehicleId.includes('__')) {
+      resolvedVehiclePlate = vehicleId
+    }
+    if (!resolvedVehiclePlate && vehicleName) {
+      // Pokušaj izvući tablice iz naziva vozila (format: "FORD FIESTA TVBB407 2023")
+      const words = vehicleName.toUpperCase().split(/\s+/)
+      const platePattern = /^[A-Z]{2,4}\d{3,4}$/
+      const foundPlate = words.find((w: string) => platePattern.test(w))
+      if (foundPlate) resolvedVehiclePlate = foundPlate
+    }
+
     if (resolvedVehiclePlate && reservation) {
       const days = Math.max(1, Math.ceil((new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000))
       await supabase.from('rezervacije').insert([{
