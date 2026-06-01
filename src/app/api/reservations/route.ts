@@ -72,10 +72,18 @@ export async function POST(req: NextRequest) {
 
           for (const v of fleetVehicles) {
             // Provjeri da li ima konflikt (vozilo zauzeto u traženom periodu)
-            const hasConflict = (occupied || []).some(o =>
-              o.br_tablica === v.license_plate &&
-              o.od_datuma < returnDate && o.do_datuma > pickupDate
-            )
+            // Provjeri konflikt sa 1h lufta po vremenu
+            const pickupDT = new Date(`${pickupDate}T${body.pickupTime || '10:00'}`)
+            const returnDT = new Date(`${returnDate}T${body.returnTime || '10:00'}`)
+            pickupDT.setHours(pickupDT.getHours() - 1) // 1h lufta prije
+            returnDT.setHours(returnDT.getHours() + 1) // 1h lufta poslije
+
+            const hasConflict = (occupied || []).some((o: any) => {
+              const oFrom = new Date(`${o.od_datuma}T${o.vreme_izdavanja || '10:00'}`)
+              const oTo = new Date(`${o.do_datuma}T${o.vreme_povratka || '10:00'}`)
+              return o.br_tablica === v.license_plate &&
+                oFrom < returnDT && oTo > pickupDT
+            })
             if (hasConflict) continue
 
             // Nađi rupu: prethodna rezervacija koja završava PRIJE pickup i sljedeća koja počinje NAKON return
@@ -160,54 +168,52 @@ export async function POST(req: NextRequest) {
             napomena: `Sajt ref: PENDING`,
             tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
           }
-          const { error: calErr } = await supabase.from('rezervacije').insert([calPayload])
-          if (calErr) console.error('Kalendar insert greška:', JSON.stringify(calErr))
+          // Pokušaj INSERT — unique index u bazi sprječava duplikate
+          // Ako INSERT failuje (unique violation), uzmi sljedeće slobodno vozilo
+          let insertOk = false
+          let attemptPlate = resolvedVehiclePlate
+          let attemptName = resolvedVehicleName
 
-          // ═══ PROVJERI DUPLIKAT: koliko puta je ovo vozilo sad u kalendaru za ovaj period? ═══
-          const { data: dupCheck } = await supabase
-            .from('rezervacije')
-            .select('id')
-            .eq('br_tablica', resolvedVehiclePlate)
-            .lte('od_datuma', returnDate)
-            .gt('do_datuma', pickupDate)
-            .eq('izvor_rezervacije', 'Sajt')
+          for (let attempt = 0; attempt < scores.length + 1; attempt++) {
+            const { error: calErr } = await supabase.from('rezervacije').insert([{
+              ...calPayload,
+              br_tablica: attemptPlate,
+            }])
 
-          if (dupCheck && dupCheck.length > 1) {
-            // Vozilo već zauzeto — nađi sljedeće slobodno iz scores liste
-            const alreadyUsed = new Set([resolvedVehiclePlate])
-            
-            // Učitaj sve zauzete ponovo
+            if (!calErr) {
+              // Uspješno — ovo vozilo je naše
+              resolvedVehiclePlate = attemptPlate
+              resolvedVehicleName = attemptName
+              insertOk = true
+              break
+            }
+
+            console.log(`Vehicle ${attemptPlate} conflict (attempt ${attempt}), trying next...`)
+
+            // Nađi sljedeće slobodno iz scores (preskoči već pokušane)
+            const tried = new Set(scores.slice(0, attempt + 1).map(s => s.vehicle.license_plate))
+            tried.add(resolvedVehiclePlate)
+
             const { data: occNow } = await supabase
               .from('rezervacije')
               .select('br_tablica, od_datuma, do_datuma')
               .in('br_tablica', plates)
-            
-            const nextFree = scores.find(s => {
-              if (alreadyUsed.has(s.vehicle.license_plate)) return false
-              const conflict = (occNow || []).some((o: any) =>
+
+            const nextScore = scores.find(s => {
+              if (tried.has(s.vehicle.license_plate)) return false
+              return !(occNow || []).some((o: any) =>
                 o.br_tablica === s.vehicle.license_plate &&
                 o.od_datuma < returnDate && o.do_datuma > pickupDate
               )
-              return !conflict
             })
 
-            if (nextFree) {
-              // Obrisi pogrešan insert i stavi na pravo vozilo
-              await supabase.from('rezervacije').delete()
-                .eq('br_tablica', resolvedVehiclePlate)
-                .eq('od_datuma', pickupDate)
-                .eq('napomena', 'Sajt ref: PENDING')
-                .eq('izvor_rezervacije', 'Sajt')
-                .limit(1)
+            if (!nextScore) break
+            attemptPlate = nextScore.vehicle.license_plate
+            attemptName = nextScore.vehicle.agregirani_2 || `${nextScore.vehicle.marka} ${nextScore.vehicle.model}`
+          }
 
-              resolvedVehiclePlate = nextFree.vehicle.license_plate
-              resolvedVehicleName = nextFree.vehicle.agregirani_2 || `${nextFree.vehicle.marka} ${nextFree.vehicle.model}`
-              
-              await supabase.from('rezervacije').insert([{
-                ...calPayload,
-                br_tablica: resolvedVehiclePlate,
-              }])
-            }
+          if (!insertOk) {
+            console.error('No free vehicle found after all attempts')
           }
         } else {
           resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
