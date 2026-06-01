@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
     if (vehicleId && vehicleId.includes('__')) {
       const parts = vehicleId.split('__')
       const [marka, model, year] = parts
+      const _logs: string[] = []
+      const _log = (msg: string) => { console.log(msg); _logs.push(msg) }
+      _log(`VEHICLE SELECTION START: vehicleId=${vehicleId} marka=${marka} model=${model} year=${year} pickupLocation=${pickupLocation} pickupDate=${pickupDate} returnDate=${returnDate}`)
       if (marka && model) {
         // 1. Nađi sve vozila iste grupe u odgovarajućoj regiji
         const region = (() => {
@@ -65,7 +68,8 @@ export async function POST(req: NextRequest) {
           .eq('fleet_status', 'available')
           .eq('lokacija', region)
         if (year && !isNaN(parseInt(year))) q = q.eq('year', parseInt(year))
-        const { data: candidates } = await q
+        const { data: candidates, error: candErr } = await q
+        _log(`Candidates: ${candidates?.length} Error: ${candErr?.message} Region: ${region}`)
 
         if (candidates && candidates.length > 0) {
           // 2. Nađi zauzeta vozila iz kalendara za taj period
@@ -119,7 +123,7 @@ export async function POST(req: NextRequest) {
             // 5. INSERT-and-verify: pokušaj redom dok ne uspije
             const days = Math.max(1, Math.ceil(reqMs / 86400000))
             let inserted = false
-            console.log('Scored vehicles:', scored.map((s: any) => `${s.v.license_plate}(${s.score})`).join(', '))
+            _log(`Scored: ${scored.map((s: any) => s.v.license_plate+'('+s.score+')').join(', ')}`)
 
             for (const { v } of scored) {
               // Provjeri PONOVO iz baze (svježi podaci — sprječava race condition)
@@ -128,19 +132,19 @@ export async function POST(req: NextRequest) {
                 .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
                 .eq('br_tablica', v.license_plate)
 
-              if (freshErr) console.error('Fresh query error:', freshErr)
-              console.log(`${v.license_plate}: ${(freshZauzeta||[]).length} rezervacija u kalendaru`)
+              if (freshErr) _log(`freshErr: ${JSON.stringify(freshErr)}`)
+              _log(`${v.license_plate}: ${(freshZauzeta||[]).length} rez u kalendaru`)
 
               const stillFree = !(freshZauzeta || []).some((z: any) => {
                 const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
                 const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
                 const conflict = zFrom < new Date(returnDT.getTime() + 3600000) &&
                        zTo > new Date(pickupDT.getTime() - 3600000)
-                if (conflict) console.log(`  Konflikt: ${z.od_datuma}-${z.do_datuma}`)
+                if (conflict) _log(`  Konflikt: ${z.od_datuma}-${z.do_datuma}`)
                 return conflict
               })
 
-              console.log(`${v.license_plate} stillFree: ${stillFree}`)
+              _log(`${v.license_plate} stillFree: ${stillFree}`)
               if (!stillFree) continue
 
               const { error: insErr } = await supabase.from('rezervacije').insert([{
@@ -168,7 +172,7 @@ export async function POST(req: NextRequest) {
                 inserted = true
                 break
               }
-              console.error('INSERT greška za', v.license_plate, ':', JSON.stringify(insErr))
+              _log(`INSERT ERROR ${v.license_plate}: ${JSON.stringify(insErr)}`)
               // insErr znači unique constraint — probaj sljedeće vozilo
             }
 
@@ -176,6 +180,8 @@ export async function POST(req: NextRequest) {
               resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
               resolvedVehiclePlate = null
             }
+            // Snimi log u bazu
+            await supabase.from('logovi').insert([{ akcija: `[API-LOG] ${_logs.join(' | ')}` }])
           } else {
             // Sva vozila zauzeta — samo ime bez plate
             resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
