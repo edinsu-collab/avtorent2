@@ -119,21 +119,28 @@ export async function POST(req: NextRequest) {
             // 5. INSERT-and-verify: pokušaj redom dok ne uspije
             const days = Math.max(1, Math.ceil(reqMs / 86400000))
             let inserted = false
+            console.log('Scored vehicles:', scored.map((s: any) => `${s.v.license_plate}(${s.score})`).join(', '))
 
             for (const { v } of scored) {
               // Provjeri PONOVO iz baze (svježi podaci — sprječava race condition)
-              const { data: freshZauzeta } = await supabase
+              const { data: freshZauzeta, error: freshErr } = await supabase
                 .from('rezervacije')
                 .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
                 .eq('br_tablica', v.license_plate)
 
+              if (freshErr) console.error('Fresh query error:', freshErr)
+              console.log(`${v.license_plate}: ${(freshZauzeta||[]).length} rezervacija u kalendaru`)
+
               const stillFree = !(freshZauzeta || []).some((z: any) => {
                 const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
                 const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
-                return zFrom < new Date(returnDT.getTime() + 3600000) &&
+                const conflict = zFrom < new Date(returnDT.getTime() + 3600000) &&
                        zTo > new Date(pickupDT.getTime() - 3600000)
+                if (conflict) console.log(`  Konflikt: ${z.od_datuma}-${z.do_datuma}`)
+                return conflict
               })
 
+              console.log(`${v.license_plate} stillFree: ${stillFree}`)
               if (!stillFree) continue
 
               const { error: insErr } = await supabase.from('rezervacije').insert([{
@@ -161,6 +168,7 @@ export async function POST(req: NextRequest) {
                 inserted = true
                 break
               }
+              console.error('INSERT greška za', v.license_plate, ':', JSON.stringify(insErr))
               // insErr znači unique constraint — probaj sljedeće vozilo
             }
 
