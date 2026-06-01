@@ -123,6 +123,32 @@ export async function POST(req: NextRequest) {
 
           resolvedVehicleName = chosen.agregirani_2 || vehicleName || `${chosen.marka} ${chosen.model} ${chosen.year}`
           resolvedVehiclePlate = chosen.license_plate
+
+          // ═══ ODMAH rezerviši u kalendar da blokiramo vozilo ═══
+          // Ovo sprječava race condition gdje dvije rezervacije dobiju isto vozilo
+          const reqDaysCalendar = Math.max(1, Math.ceil(
+            (new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000
+          ))
+          await supabase.from('rezervacije').insert([{
+            br_tablica: resolvedVehiclePlate,
+            ime_prezime: guestName,
+            telefon: body.guestPhone || '',
+            email: gEmail,
+            od_datuma: pickupDate,
+            do_datuma: returnDate,
+            vreme_izdavanja: body.pickupTime || '10:00',
+            vreme_povratka: body.returnTime || '10:00',
+            mjesto_preuzimanja: body.pickupLocation || '',
+            mjesto_povratka: body.dropoffLocation || body.pickupLocation || '',
+            cijena_dan: Math.round((body.totalPrice || 0) / reqDaysCalendar),
+            ukupno_naplata: body.totalPrice || 0,
+            broj_dana: reqDaysCalendar,
+            nacin_placanja: 'Keš',
+            izvor_rezervacije: 'Sajt',
+            daily_status: 'Na čekanju',
+            napomena: `Sajt ref: PENDING`,
+            tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
+          }])
         } else {
           resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
         }
@@ -252,41 +278,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Extras
-    // ═══ Auto-kreiraj zapis u kalendar (rezervacije tabela) ═══
-    // Fallback: ako plate nije nađen, uzmi iz vehicleId
-    if (!resolvedVehiclePlate && vehicleId && !vehicleId.includes('__')) {
-      resolvedVehiclePlate = vehicleId
-    }
-    if (!resolvedVehiclePlate && vehicleName) {
-      // Pokušaj izvući tablice iz naziva vozila (format: "FORD FIESTA TVBB407 2023")
-      const words = vehicleName.toUpperCase().split(/\s+/)
-      const platePattern = /^[A-Z]{2,4}\d{3,4}$/
-      const foundPlate = words.find((w: string) => platePattern.test(w))
-      if (foundPlate) resolvedVehiclePlate = foundPlate
-    }
-
+    // Ažuriraj napomenu u kalendaru sa pravim ref_code
     if (resolvedVehiclePlate && reservation) {
-      const days = Math.max(1, Math.ceil((new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000))
-      await supabase.from('rezervacije').insert([{
-        br_tablica: resolvedVehiclePlate,
-        ime_prezime: guestName,
-        telefon: body.guestPhone || '',
-        email: gEmail,
-        od_datuma: pickupDate,
-        do_datuma: returnDate,
-        vreme_izdavanja: body.pickupTime || '10:00',
-        vreme_povratka: body.returnTime || '10:00',
-        mjesto_preuzimanja: body.pickupLocation || '',
-        mjesto_povratka: body.dropoffLocation || body.pickupLocation || '',
-        cijena_dan: Math.round((body.totalPrice || 0) / days),
-        ukupno_naplata: body.totalPrice || 0,
-        broj_dana: days,
-        nacin_placanja: 'Keš',
-        izvor_rezervacije: 'Sajt',
-        daily_status: 'Na čekanju',
-        napomena: `Sajt ref: ${reservation.ref_code}`,
-        tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
-      }])
+      await supabase.from('rezervacije')
+        .update({ napomena: `Sajt ref: ${reservation.ref_code}` })
+        .eq('br_tablica', resolvedVehiclePlate)
+        .eq('od_datuma', pickupDate)
+        .eq('napomena', 'Sajt ref: PENDING')
     }
 
     if (extras.length > 0) {
