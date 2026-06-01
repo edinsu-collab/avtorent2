@@ -24,19 +24,6 @@ type Location = { id: string; name: string; city: string; country: string }
 type Transfer = { id: string; from_location_id: string; to_location_id: string; price: number }
 
 
-// Prijevod naziva zemlje za lokacije
-function translateCountry(country: string, lang: string): string {
-  const MAP: Record<string, Record<string, string>> = {
-    'Crna Gora': { en: 'Montenegro', de: 'Montenegro', ru: 'Черногория', tr: 'Karadağ', fr: 'Monténégro', es: 'Montenegro', ar: 'الجبل الأسود' },
-    'Srbija': { en: 'Serbia', de: 'Serbien', ru: 'Сербия', tr: 'Sırbistan', fr: 'Serbie', es: 'Serbia', ar: 'صربيا' },
-    'Bosna i Hercegovina': { en: 'Bosnia & Herzegovina', de: 'Bosnien-Herzegowina', ru: 'Босния и Герцеговина', tr: 'Bosna Hersek', fr: 'Bosnie-Herzégovine', es: 'Bosnia y Herzegovina', ar: 'البوسنة والهرسك' },
-    'Albanija': { en: 'Albania', de: 'Albanien', ru: 'Албания', tr: 'Arnavutluk', fr: 'Albanie', es: 'Albania', ar: 'ألبانيا' },
-    'Hrvatska': { en: 'Croatia', de: 'Kroatien', ru: 'Хорватия', tr: 'Hırvatistan', fr: 'Croatie', es: 'Croacia', ar: 'كرواتيا' },
-  }
-  if (lang === 'sr') return country
-  return MAP[country]?.[lang] || country
-}
-
 function HomePageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -166,6 +153,7 @@ function HomePageContent() {
     if (pickupDate) params.set('pickupDate', pickupDate)
     if (returnDate) params.set('returnDate', returnDate)
     if (pickupLocationId && pickupLocationId !== 'custom') params.set('locationId', pickupLocationId)
+    if (pickupLocation) params.set('pickupLocation', pickupLocation)
     fetch(`/api/vehicles?${params}`)
       .then(r => r.json())
       .then(d => { setVehicles(Array.isArray(d) ? d : []); setLoading(false) })
@@ -342,7 +330,7 @@ function HomePageContent() {
               <label style={{ fontSize: 11, color: '#6b7280', display: 'block', marginBottom: 3 }}>{tr.pickupLoc}</label>
               <select value={pickupLocationId} onChange={e => setPickupLocationId(e.target.value)} style={inp}>
                 <option value="">{lang === 'sr' ? '-- Odaberi lokaciju --' : lang === 'de' ? '-- Standort wählen --' : lang === 'ru' ? '-- Выберите локацию --' : lang === 'tr' ? '-- Konum seçin --' : lang === 'fr' ? '-- Choisir un lieu --' : lang === 'es' ? '-- Elegir ubicación --' : lang === 'ar' ? '-- اختر الموقع --' : '-- Select location --'}</option>
-                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({translateCountry(l.country, lang)})</option>)}
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({lang === 'sr' ? l.country : l.country === 'Crna Gora' ? 'Montenegro' : l.country === 'Srbija' ? 'Serbia' : l.country === 'Bosna i Hercegovina' ? 'Bosnia & Herzegovina' : l.country === 'Albanija' ? 'Albania' : l.country === 'Hrvatska' ? 'Croatia' : l.country})</option>)}
                 <option value="custom">{lang === 'sr' ? 'Druga adresa' : lang === 'de' ? 'Andere Adresse' : lang === 'ru' ? 'Другой адрес' : lang === 'tr' ? 'Başka adres' : lang === 'fr' ? 'Autre adresse' : lang === 'es' ? 'Otra dirección' : lang === 'ar' ? 'عنوان آخر' : 'Other address'}</option>
               </select>
               {pickupLocationId === 'custom' && (
@@ -364,7 +352,7 @@ function HomePageContent() {
                 </div>
                 <select value={dropoffLocationId} onChange={e => setDropoffLocationId(e.target.value)} style={inp}>
                   <option value="">{lang === 'sr' ? '-- Odaberi lokaciju --' : lang === 'de' ? '-- Standort wählen --' : lang === 'ru' ? '-- Выберите локацию --' : lang === 'tr' ? '-- Konum seçin --' : lang === 'fr' ? '-- Choisir un lieu --' : lang === 'es' ? '-- Elegir ubicación --' : lang === 'ar' ? '-- اختر الموقع --' : '-- Select location --'}</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({translateCountry(l.country, lang)})</option>)}
+                  {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({lang === 'sr' ? l.country : l.country === 'Crna Gora' ? 'Montenegro' : l.country === 'Srbija' ? 'Serbia' : l.country === 'Bosna i Hercegovina' ? 'Bosnia & Herzegovina' : l.country === 'Albanija' ? 'Albania' : l.country === 'Hrvatska' ? 'Croatia' : l.country})</option>)}
                   <option value="custom">{lang === 'sr' ? 'Druga adresa' : lang === 'de' ? 'Andere Adresse' : lang === 'ru' ? 'Другой адрес' : lang === 'tr' ? 'Başka adres' : lang === 'fr' ? 'Autre adresse' : lang === 'es' ? 'Otra dirección' : lang === 'ar' ? 'عنوان آخر' : 'Other address'}</option>
                 </select>
                 {dropoffLocationId === 'custom' && (
