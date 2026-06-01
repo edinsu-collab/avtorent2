@@ -24,6 +24,19 @@ type Location = { id: string; name: string; city: string; country: string }
 type Transfer = { id: string; from_location_id: string; to_location_id: string; price: number }
 
 
+// Prijevod naziva zemlje za lokacije
+function translateCountry(country: string, lang: string): string {
+  const MAP: Record<string, Record<string, string>> = {
+    'Crna Gora': { en: 'Montenegro', de: 'Montenegro', ru: 'Черногория', tr: 'Karadağ', fr: 'Monténégro', es: 'Montenegro', ar: 'الجبل الأسود' },
+    'Srbija': { en: 'Serbia', de: 'Serbien', ru: 'Сербия', tr: 'Sırbistan', fr: 'Serbie', es: 'Serbia', ar: 'صربيا' },
+    'Bosna i Hercegovina': { en: 'Bosnia & Herzegovina', de: 'Bosnien-Herzegowina', ru: 'Босния и Герцеговина', tr: 'Bosna Hersek', fr: 'Bosnie-Herzégovine', es: 'Bosnia y Herzegovina', ar: 'البوسنة والهرسك' },
+    'Albanija': { en: 'Albania', de: 'Albanien', ru: 'Албания', tr: 'Arnavutluk', fr: 'Albanie', es: 'Albania', ar: 'ألبانيا' },
+    'Hrvatska': { en: 'Croatia', de: 'Kroatien', ru: 'Хорватия', tr: 'Hırvatistan', fr: 'Croatie', es: 'Croacia', ar: 'كرواتيا' },
+  }
+  if (lang === 'sr') return country
+  return MAP[country]?.[lang] || country
+}
+
 function HomePageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -103,20 +116,7 @@ function HomePageContent() {
     else setLang('en')
 
     // Provjeri je li klijent ulogovan
-    // Prijevod naziva zemlje za lokacije
-function translateCountry(country: string, lang: string): string {
-  const MAP: Record<string, Record<string, string>> = {
-    'Crna Gora': { en: 'Montenegro', de: 'Montenegro', ru: 'Черногория', tr: 'Karadağ', fr: 'Monténégro', es: 'Montenegro', ar: 'الجبل الأسود' },
-    'Srbija': { en: 'Serbia', de: 'Serbien', ru: 'Сербия', tr: 'Sırbistan', fr: 'Serbie', es: 'Serbia', ar: 'صربيا' },
-    'Bosna i Hercegovina': { en: 'Bosnia & Herzegovina', de: 'Bosnien-Herzegowina', ru: 'Босния и Герцеговина', tr: 'Bosna Hersek', fr: 'Bosnie-Herzégovine', es: 'Bosnia y Herzegovina', ar: 'البوسنة والهرسك' },
-    'Albanija': { en: 'Albania', de: 'Albanien', ru: 'Албания', tr: 'Arnavutluk', fr: 'Albanie', es: 'Albania', ar: 'ألبانيا' },
-    'Hrvatska': { en: 'Croatia', de: 'Kroatien', ru: 'Хорватия', tr: 'Hırvatistan', fr: 'Croatie', es: 'Croacia', ar: 'كرواتيا' },
-  }
-  if (lang === 'sr') return country
-  return MAP[country]?.[lang] || country
-}
-
-function getCookie(name: string): string {
+  function getCookie(name: string): string {
       if (typeof document === 'undefined') return ''
       const match = document.cookie.match(new RegExp(`${name}=([^;]+)`))
       return match ? decodeURIComponent(match[1]) : ''
