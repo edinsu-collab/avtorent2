@@ -91,67 +91,83 @@ export async function POST(req: NextRequest) {
             })
           })
 
+          // 4. Gap scoring — sortiraj slobodna vozila po tome koliko se dobro uklapaju u rupu
+          const reqMs = returnDT.getTime() - pickupDT.getTime()
+
+          const scoreVehicle = (v: any, zau: any[]) => {
+            const vZauzeta = zau
+              .filter((z: any) => z.br_tablica === v.license_plate)
+              .sort((a: any, b: any) => a.od_datuma.localeCompare(b.od_datuma))
+            const prev = vZauzeta.filter((z: any) =>
+              new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`) <= pickupDT)
+            const next = vZauzeta.filter((z: any) =>
+              new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`) >= returnDT)
+            let gapMs = Infinity
+            if (prev.length > 0 && next.length > 0) {
+              gapMs = new Date(`${next[0].od_datuma}T${next[0].vreme_izdavanja || '10:00'}`).getTime() -
+                      new Date(`${prev[prev.length-1].do_datuma}T${prev[prev.length-1].vreme_povratka || '10:00'}`).getTime()
+            }
+            const surplus = gapMs === Infinity ? 30 * 86400000 : gapMs - reqMs
+            return gapMs === Infinity ? 50 : Math.max(0, 100 - (surplus / 3600000) * 2)
+          }
+
           if (free.length > 0) {
-            // 4. Odaberi vozilo koje se najtočnije uklapa u rupu (gap scoring)
-            const reqMs = returnDT.getTime() - pickupDT.getTime()
-
-            const scored = free.map((v: any) => {
-              const vZauzeta = (zauzeta || [])
-                .filter((z: any) => z.br_tablica === v.license_plate)
-                .sort((a: any, b: any) => a.od_datuma.localeCompare(b.od_datuma))
-
-              // Prethodna rezervacija koja završava prije preuzimanja
-              const prev = vZauzeta.filter((z: any) =>
-                new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`) <= pickupDT
-              )
-              // Sljedeća rezervacija koja počinje nakon vraćanja
-              const next = vZauzeta.filter((z: any) =>
-                new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`) >= returnDT
-              )
-
-              let gapMs = Infinity // potpuno slobodno
-              if (prev.length > 0 && next.length > 0) {
-                const gapStart = new Date(`${prev[prev.length-1].do_datuma}T${prev[prev.length-1].vreme_povratka || '10:00'}`)
-                const gapEnd = new Date(`${next[0].od_datuma}T${next[0].vreme_izdavanja || '10:00'}`)
-                gapMs = gapEnd.getTime() - gapStart.getTime()
-              }
-
-              // Manji višak = bolji score; potpuno slobodna vozila penalizovana
-              const surplus = gapMs === Infinity ? 30 * 86400000 : gapMs - reqMs
-              const score = gapMs === Infinity ? 50 : Math.max(0, 100 - (surplus / 3600000) * 2)
-              return { v, score, gapMs }
-            })
-
+            // Sortiraj po score
+            const scored = free.map((v: any) => ({ v, score: scoreVehicle(v, zauzeta || []) }))
             scored.sort((a: any, b: any) => b.score - a.score)
-            const chosen = scored[0].v
-            resolvedVehicleName = chosen.agregirani_2 || vehicleName || `${chosen.marka} ${chosen.model} ${chosen.year}`
-            resolvedVehiclePlate = chosen.license_plate
 
-            // 5. Odmah upiši u kalendar da blokiramo vozilo
-            const days = Math.max(1, Math.ceil((returnDT.getTime() - pickupDT.getTime()) / 86400000))
-            await supabase.from('rezervacije').insert([{
-              br_tablica: resolvedVehiclePlate,
-              ime_prezime: guestName,
-              od_datuma: pickupDate,
-              do_datuma: returnDate,
-              vreme_izdavanja: (() => {
-                // Dodaj sekunde za jedinstvenost (sprječava unique constraint konflikt)
-                const base = pickupTime || '10:00'
-                const sec = String(Math.floor(Math.random() * 59)).padStart(2, '0')
-                return `${base}:${sec}`
-              })(),
-              vreme_povratka: returnTime || '10:00',
-              mjesto_preuzimanja: pickupLocation || '',
-              mjesto_povratka: body.dropoffLocation || pickupLocation || '',
-              cijena_dan: Math.round((body.totalPrice || 0) / days),
-              ukupno_naplata: body.totalPrice || 0,
-              broj_dana: days,
-              nacin_placanja: 'Keš',
-              izvor_rezervacije: 'Sajt',
-              daily_status: 'Na čekanju',
-              napomena: `Sajt`,
-              tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
-            }])
+            // 5. INSERT-and-verify: pokušaj redom dok ne uspije
+            const days = Math.max(1, Math.ceil(reqMs / 86400000))
+            let inserted = false
+
+            for (const { v } of scored) {
+              // Provjeri PONOVO iz baze (svježi podaci — sprječava race condition)
+              const { data: freshZauzeta } = await supabase
+                .from('rezervacije')
+                .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
+                .eq('br_tablica', v.license_plate)
+
+              const stillFree = !(freshZauzeta || []).some((z: any) => {
+                const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
+                const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
+                return zFrom < new Date(returnDT.getTime() + 3600000) &&
+                       zTo > new Date(pickupDT.getTime() - 3600000)
+              })
+
+              if (!stillFree) continue
+
+              const { error: insErr } = await supabase.from('rezervacije').insert([{
+                br_tablica: v.license_plate,
+                ime_prezime: guestName,
+                od_datuma: pickupDate,
+                do_datuma: returnDate,
+                vreme_izdavanja: pickupTime || '10:00',
+                vreme_povratka: returnTime || '10:00',
+                mjesto_preuzimanja: pickupLocation || '',
+                mjesto_povratka: body.dropoffLocation || pickupLocation || '',
+                cijena_dan: Math.round((body.totalPrice || 0) / days),
+                ukupno_naplata: body.totalPrice || 0,
+                broj_dana: days,
+                nacin_placanja: 'Keš',
+                izvor_rezervacije: 'Sajt',
+                daily_status: 'Na čekanju',
+                napomena: `Sajt`,
+                tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
+              }])
+
+              if (!insErr) {
+                resolvedVehiclePlate = v.license_plate
+                resolvedVehicleName = v.agregirani_2 || vehicleName || `${v.marka} ${v.model} ${v.year}`
+                inserted = true
+                break
+              }
+              // insErr znači unique constraint — probaj sljedeće vozilo
+            }
+
+            if (!inserted) {
+              resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
+              resolvedVehiclePlate = null
+            }
           } else {
             // Sva vozila zauzeta — samo ime bez plate
             resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
