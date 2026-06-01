@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
           const reqDaysCalendar = Math.max(1, Math.ceil(
             (new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000
           ))
-          await supabase.from('rezervacije').insert([{
+          const { error: calErr } = await supabase.from('rezervacije').insert([{
             br_tablica: resolvedVehiclePlate,
             ime_prezime: guestName,
             telefon: body.guestPhone || '',
@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
             napomena: `Sajt ref: PENDING`,
             tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
           }])
+          if (calErr) console.error('Kalendar insert greška:', JSON.stringify(calErr))
         } else {
           resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
         }
