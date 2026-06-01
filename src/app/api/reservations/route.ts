@@ -134,7 +134,12 @@ export async function POST(req: NextRequest) {
               ime_prezime: guestName,
               od_datuma: pickupDate,
               do_datuma: returnDate,
-              vreme_izdavanja: pickupTime || '10:00',
+              vreme_izdavanja: (() => {
+                // Dodaj sekunde za jedinstvenost (sprječava unique constraint konflikt)
+                const base = pickupTime || '10:00'
+                const sec = String(Math.floor(Math.random() * 59)).padStart(2, '0')
+                return `${base}:${sec}`
+              })(),
               vreme_povratka: returnTime || '10:00',
               mjesto_preuzimanja: pickupLocation || '',
               mjesto_povratka: body.dropoffLocation || pickupLocation || '',
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
               nacin_placanja: 'Keš',
               izvor_rezervacije: 'Sajt',
               daily_status: 'Na čekanju',
-              napomena: 'Sajt rezervacija — čeka dodjelu',
+              napomena: `Sajt`,
               tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
             }])
           } else {
@@ -282,6 +287,15 @@ export async function POST(req: NextRequest) {
 
     // Extras
 
+
+    // Ažuriraj napomenu u kalendaru sa ref_code
+    if (resolvedVehiclePlate && reservation?.ref_code) {
+      await supabase.from('rezervacije')
+        .update({ napomena: `Sajt ref: ${reservation.ref_code}` })
+        .eq('br_tablica', resolvedVehiclePlate)
+        .eq('od_datuma', pickupDate)
+        .eq('izvor_rezervacije', 'Sajt')
+    }
 
     if (extras.length > 0) {
       await supabase.from('reservation_extras').insert(
