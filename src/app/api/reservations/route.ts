@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       const [marka, model, year] = parts
       if (marka && model) {
         let q = supabase.from('vozila_fleet')
-          .select('id, agregirani_2, marka, model, year, license_plate, fleet_status')
+          .select('id, agregirani_2, marka, model, year, license_plate, fleet_status, lokacija')
           .ilike('marka', marka)
           .ilike('model', model)
           .eq('fleet_status', 'available')
@@ -111,7 +111,19 @@ export async function POST(req: NextRequest) {
 
             const viska = gapDays === 999 ? 30 : gapDays - reqDays
             // Penalizuj potpuno slobodna vozila (999) — preferuj ona sa rupom
-            const score = gapDays === 999 ? 50 : Math.max(0, 100 - viska * 3)
+            // Bonus ako je vozilo u istoj regiji kao lokacija preuzimanja
+            const regionBonus = (() => {
+              if (!pickupLocation || !v.lokacija) return 0
+              const loc = pickupLocation.toLowerCase()
+              const vLok = v.lokacija
+              if (vLok === 'CRNA GORA' && (loc.includes('podgorica') || loc.includes('tivat') || loc.includes('bar') || loc.includes('budva') || loc.includes('kotor') || loc.includes('crna gora') || loc.includes('montenegro'))) return 15
+              if (vLok === 'BiH' && (loc.includes('sarajevo') || loc.includes('mostar') || loc.includes('bih') || loc.includes('bosna'))) return 15
+              if (vLok === 'SRBIJA' && (loc.includes('beograd') || loc.includes('srbija') || loc.includes('novi sad'))) return 15
+              if (vLok === 'ALBANIJA' && (loc.includes('tirana') || loc.includes('albanija') || loc.includes('albania'))) return 15
+              return 0
+            })()
+
+            const score = (gapDays === 999 ? 50 : Math.max(0, 100 - viska * 3)) + regionBonus
 
             scores.push({ vehicle: v, score, gapDays })
           }
