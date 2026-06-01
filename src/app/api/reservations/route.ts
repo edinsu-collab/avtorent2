@@ -36,13 +36,10 @@ export async function POST(req: NextRequest) {
     // Pronađi ime vozila i license_plate
     let resolvedVehicleName = vehicleName || vehicleId || 'Unknown vehicle'
     let resolvedVehiclePlate: string | null = null
-    let _logs: string[] = []
-    const _log = (msg: string) => { console.log(msg); _logs.push(msg) }
 
     if (vehicleId && vehicleId.includes('__')) {
       const parts = vehicleId.split('__')
       const [marka, model, year] = parts
-      _log(`VEHICLE SELECTION START: vehicleId=${vehicleId} marka=${marka} model=${model} year=${year} pickupLocation=${pickupLocation} pickupDate=${pickupDate} returnDate=${returnDate}`)
       if (marka && model) {
         // 1. Nađi sve vozila iste grupe u odgovarajućoj regiji
         const region = (() => {
@@ -68,9 +65,8 @@ export async function POST(req: NextRequest) {
           .eq('fleet_status', 'available')
           .eq('lokacija', region)
         if (year && !isNaN(parseInt(year))) q = q.eq('year', parseInt(year))
-        const { data: candidates, error: candErr } = await q
-        _log(`Candidates: ${candidates?.length} Error: ${candErr?.message} Region: ${region}`)
-
+        const { data: candidates } = await q
+  
         if (candidates && candidates.length > 0) {
           // 2. Nađi zauzeta vozila iz kalendara za taj period
           const plates = candidates.map((v: any) => v.license_plate).filter(Boolean)
@@ -125,31 +121,26 @@ export async function POST(req: NextRequest) {
             // 5. INSERT-and-verify: pokušaj redom dok ne uspije
             const days = Math.max(1, Math.ceil(reqMs / 86400000))
             let inserted = false
-            _log(`Scored: ${scored.map((s: any) => s.v.license_plate+'('+s.score+')').join(', ')}`)
-
+      
             for (const { v } of scored) {
               // Provjeri PONOVO iz baze (svježi podaci — sprječava race condition)
-              const { data: freshZauzeta, error: freshErr } = await supabase
+              const { data: freshZauzeta } = await supabase
                 .from('rezervacije')
                 .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
                 .eq('br_tablica', v.license_plate)
                 .lt('od_datuma', returnDate)
                 .gt('do_datuma', pickupDate)
 
-              if (freshErr) _log(`freshErr: ${JSON.stringify(freshErr)}`)
-              _log(`${v.license_plate}: ${(freshZauzeta||[]).length} rez u kalendaru`)
-
+        
               const stillFree = !(freshZauzeta || []).some((z: any) => {
                 const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
                 const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
                 const conflict = zFrom < new Date(returnDT.getTime() + 3600000) &&
                        zTo > new Date(pickupDT.getTime() - 3600000)
-                if (conflict) _log(`  Konflikt: ${z.od_datuma}-${z.do_datuma}`)
-                return conflict
+                  return conflict
               })
 
-              _log(`${v.license_plate} stillFree: ${stillFree}`)
-              if (!stillFree) continue
+                      if (!stillFree) continue
 
               const { error: insErr } = await supabase.from('rezervacije').insert([{
                 br_tablica: v.license_plate,
@@ -176,7 +167,6 @@ export async function POST(req: NextRequest) {
                 inserted = true
                 break
               }
-              _log(`INSERT ERROR ${v.license_plate}: ${JSON.stringify(insErr)}`)
               // insErr znači unique constraint — probaj sljedeće vozilo
             }
 
@@ -184,7 +174,6 @@ export async function POST(req: NextRequest) {
               resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
               resolvedVehiclePlate = null
             }
-            // Log se dodaje u napomenu rezervacije pri kreiranju
           } else {
             // Sva vozila zauzeta — samo ime bez plate
             resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
@@ -292,7 +281,7 @@ export async function POST(req: NextRequest) {
       dropoff_location: dropoffLocation || null,
       transfer_fee: transferFee || 0,
       site_domain: siteDomain || 'rent-cars.me',
-      notes: typeof _logs !== 'undefined' && _logs.length > 0 ? `[LOG] ${_logs.join(' | ')}` : (notes || null),
+      notes: notes || null,
       base_price: finalBasePrice,
       extras_total: extrasTotal,
       total_price: finalTotal,
