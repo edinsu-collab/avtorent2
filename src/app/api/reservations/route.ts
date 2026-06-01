@@ -46,7 +46,11 @@ export async function GET(req: NextRequest) {
   // Nađi regiju iz locations tabele (najpouzdanije mapiranje)
   const pickupRegion: string | null = locationData?.fleet_region || null
 
-  const fleet = fleetData || []
+  // Filtriraj fleet po regiji ako je lokacija odabrana
+  let fleet = (fleetData || [])
+  if (pickupRegion) {
+    fleet = fleet.filter((v: any) => v.lokacija === pickupRegion)
+  }
   if (fleet.length === 0) return NextResponse.json([])
 
   // Zauzetost za dynamic pricing
