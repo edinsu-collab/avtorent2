@@ -153,7 +153,7 @@ function HomePageContent() {
     if (pickupDate) params.set('pickupDate', pickupDate)
     if (returnDate) params.set('returnDate', returnDate)
     if (pickupLocationId && pickupLocationId !== 'custom') params.set('locationId', pickupLocationId)
-    if (pickupLocation) params.set('pickupLocation', pickupLocation)
+    if (pickupLocationId && pickupLocationId !== 'custom') { const locName = locations.find((l: any) => l.id === pickupLocationId)?.name || ''; if (locName) params.set('pickupLocation', locName) }
     fetch(`/api/vehicles?${params}`)
       .then(r => r.json())
       .then(d => { setVehicles(Array.isArray(d) ? d : []); setLoading(false) })
