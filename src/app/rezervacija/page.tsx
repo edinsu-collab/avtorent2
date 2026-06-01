@@ -62,6 +62,7 @@ function BookingPageContent() {
   const vehicleYear = searchParams.get('vehicleYear') || ''
   const vehicleImage = searchParams.get('vehicleImage') || ''
   const pricePerDay = parseFloat(searchParams.get('pricePerDay') || '0')
+  const urlCoupon = searchParams.get('coupon')?.toUpperCase() || ''
   const qrRef = searchParams.get('ref') || ''
   const partnerName = searchParams.get('partnerName') || ''
   const partnerDiscount = parseFloat(searchParams.get('partnerDiscount') || '0')
@@ -93,7 +94,7 @@ function BookingPageContent() {
   const [dbLocations, setDbLocations] = useState<DBLocation[]>([])
   const [dbTransfers, setDbTransfers] = useState<DBTransfer[]>([])
   const [selectedExtras, setSelectedExtras] = useState<Record<string, boolean>>({})
-  const [couponCode, setCouponCode] = useState('')
+  const [couponCode, setCouponCode] = useState(urlCoupon)
   const [couponData, setCouponData] = useState<{ discount_percent: number } | null>(null)
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -104,6 +105,11 @@ function BookingPageContent() {
   const days = form.pickupDate && form.returnDate
     ? calculateDays(form.pickupDate, form.pickupTime, form.returnDate, form.returnTime)
     : parseInt(searchParams.get('days') || '1')
+
+  // Auto-primijeni kupon ako je proslijeđen u URLu (npr. iz admin Dostupnost linka)
+  useEffect(() => {
+    if (urlCoupon) applyCoupon()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-fill form from logged-in client session
   useEffect(() => {
