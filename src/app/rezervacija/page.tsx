@@ -257,7 +257,9 @@ function BookingPageContent() {
 
   function validateStep2() {
     const e: Record<string, string> = {}
+    const today = new Date().toISOString().split('T')[0]
     if (!form.pickupDate) e.pickupDate = 'Required'
+    else if (form.pickupDate < today) e.pickupDate = lang === 'de' ? 'Datum in der Vergangenheit' : lang === 'ru' ? 'Дата в прошлом' : 'Date cannot be in the past'
     if (!form.returnDate) e.returnDate = 'Required'
     const pickupLoc = form.pickupLocation === '__custom' ? form.pickupLocationCustom : form.pickupLocation
     if (!pickupLoc?.trim()) e.pickupLocation = 'Select a location'
@@ -515,7 +517,7 @@ function BookingPageContent() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={lbl}>{tr.pickupDate} *</label>
-                    <input type="date" style={inp(errors.pickupDate)} value={form.pickupDate} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />
+                    <input type="date" style={inp(errors.pickupDate)} value={form.pickupDate} min={new Date().toISOString().split('T')[0]} onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))} />
                     {errors.pickupDate && <div style={errStyle}>{errors.pickupDate}</div>}
                   </div>
                   <div>
@@ -524,7 +526,7 @@ function BookingPageContent() {
                   </div>
                   <div>
                     <label style={lbl}>{tr.returnDate} *</label>
-                    <input type="date" style={inp(errors.returnDate)} value={form.returnDate} onChange={e => setForm(f => ({ ...f, returnDate: e.target.value }))} />
+                    <input type="date" style={inp(errors.returnDate)} value={form.returnDate} min={form.pickupDate || new Date().toISOString().split('T')[0]} onChange={e => setForm(f => ({ ...f, returnDate: e.target.value }))} />
                     {errors.returnDate && <div style={errStyle}>{errors.returnDate}</div>}
                   </div>
                   <div>
@@ -534,7 +536,7 @@ function BookingPageContent() {
                 </div>
                 {days > 0 && (
                   <div style={{ background: '#dbeafe', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#1e40af', fontWeight: 500 }}>
-                    📅 {tr.duration}: <strong>{days} {tr.days}</strong> · <strong>{basePrice.toFixed(2)}€</strong>
+                    📅 {tr.duration}: <strong>{days} {lang === 'en' ? (days === 1 ? 'day' : 'days') : lang === 'de' ? (days === 1 ? 'Tag' : 'Tage') : lang === 'ru' ? 'дн.' : lang === 'tr' ? 'gün' : lang === 'fr' ? (days === 1 ? 'jour' : 'jours') : lang === 'es' ? (days === 1 ? 'día' : 'días') : lang === 'ar' ? 'يوم' : (days === 1 ? 'dan' : 'dana')}</strong> · <strong>{basePrice.toFixed(2)}€</strong>
                   </div>
                 )}
               </div>
@@ -710,7 +712,7 @@ function BookingPageContent() {
                 <div style={{ background: '#f9fafb', borderRadius: 10, padding: '14px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>💰 {L.total}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: '#6b7280' }}>
-                    <span>{lang === 'en' ? 'Rental' : lang === 'de' ? 'Miete' : 'Rental'} ({days} {tr.days} × {Math.round(pricePerDay * (1 - partnerDiscount / 100) * 100) / 100}€)</span>
+                    <span>{lang === 'en' ? 'Rental' : lang === 'de' ? 'Miete' : 'Rental'} ({days} {lang === 'en' ? 'days' : lang === 'de' ? 'Tage' : 'dana'} × {Math.round(pricePerDay * (1 - partnerDiscount / 100) * 100) / 100}€)</span>
                     <span>{basePrice.toFixed(2)}€</span>
                   </div>
                   {partnerDiscount > 0 && (
