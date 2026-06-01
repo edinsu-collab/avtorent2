@@ -1,395 +1,147 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
-import { guestEmail, adminEmail } from '@/lib/emails'
 
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-}
+export async function GET(req: NextRequest) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-export async function POST(req: NextRequest) {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-    const body = await req.json()
-    const {
-      vehicleId, vehicleName, partnerQrCode, guestName, guestEmail: gEmail, guestPhone,
-      guestNationality, guestDob, guestLicense,
-      hasSecondDriver, driver2Name, driver2License, driver2Nationality,
-      insurance, insuranceTotal,
-      borderCrossing, flightNumber,
-      pickupDate, returnDate, pickupTime, returnTime,
-      pickupLocation, dropoffLocation, transferFee, siteDomain, notes, lang = 'en',
-      extras = [], couponCode, couponDiscountPercent, couponDiscountAmount,
-      partnerDiscountPercent, partnerDiscountAmount,
-      extrasTotal = 0, basePrice, totalPrice,
-      agentId, agentName,
-    } = body
+  const { searchParams } = new URL(req.url)
+  const vehicleClass = searchParams.get('category')
+  const pickupDate = searchParams.get('pickupDate')
+  const returnDate = searchParams.get('returnDate')
+  const pickupLocation = searchParams.get('pickupLocation') || ''
+  const pickupLocationId = searchParams.get('locationId') || ''
+  const targetDate = pickupDate || new Date().toISOString().split('T')[0]
 
-    if (!guestName || !gEmail || !guestPhone || !pickupDate || !returnDate || !pickupLocation) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
+  const [
+    { data: fleetData },
+    { data: categories },
+    { data: seasons },
+    { data: dynamics },
+    { data: locationData },
+    { data: zauzeteRezData },
+  ] = await Promise.all([
+    supabase
+      .from('vozila_fleet')
+      .select('id, license_plate, marka, model, year, transmission, fuel_type, seats, image_url, vehicle_class, features, price_per_day, fleet_status, lokacija, show_on_site, price_category_id, agregirani_2')
+      .eq('fleet_status', 'available')
+      .eq('show_on_site', true)
+      .order('marka'),
+    supabase.from('price_categories').select('*').eq('is_active', true),
+    supabase.from('seasonal_pricing').select('*').eq('is_active', true).lte('date_from', targetDate).gte('date_to', targetDate),
+    supabase.from('dynamic_pricing').select('*').eq('is_active', true).order('occupancy_threshold', { ascending: false }),
+    pickupLocationId
+      ? supabase.from('locations').select('fleet_region').eq('id', pickupLocationId).single()
+      : Promise.resolve({ data: null }),
+    pickupDate && returnDate
+      ? supabase.from('rezervacije').select('br_tablica').neq('daily_status', 'Nije izdato').lt('od_datuma', returnDate).gt('do_datuma', pickupDate)
+      : Promise.resolve({ data: [] }),
+  ])
 
-    // Pronađi ime vozila i license_plate
-    let resolvedVehicleName = vehicleName || vehicleId || 'Unknown vehicle'
-    let resolvedVehiclePlate: string | null = null
-    let _logs: string[] = []
-    const _log = (msg: string) => { console.log(msg); _logs.push(msg) }
+  // Set zauzetih tablica u traženom periodu
+  const occupiedPlates = new Set((zauzeteRezData || []).map((r: any) => r.br_tablica))
 
-    if (vehicleId && vehicleId.includes('__')) {
-      const parts = vehicleId.split('__')
-      const [marka, model, year] = parts
-      _log(`VEHICLE SELECTION START: vehicleId=${vehicleId} marka=${marka} model=${model} year=${year} pickupLocation=${pickupLocation} pickupDate=${pickupDate} returnDate=${returnDate}`)
-      if (marka && model) {
-        // 1. Nađi sve vozila iste grupe u odgovarajućoj regiji
-        const region = (() => {
-          const loc = (pickupLocation || '').toLowerCase()
-          const MAP: Record<string, string> = {
-            'podgorica': 'CRNA GORA', 'tivat': 'CRNA GORA', 'bar': 'CRNA GORA',
-            'budva': 'CRNA GORA', 'kotor': 'CRNA GORA', 'herceg': 'CRNA GORA',
-            'ulcinj': 'CRNA GORA', 'cetinje': 'CRNA GORA', 'apartment': 'CRNA GORA',
-            'sarajevo': 'BiH', 'mostar': 'BiH', 'banja luka': 'BiH',
-            'beograd': 'SRBIJA', 'novi sad': 'SRBIJA',
-            'tirana': 'ALBANIJA', 'durres': 'ALBANIJA',
-          }
-          for (const [key, r] of Object.entries(MAP)) {
-            if (loc.includes(key)) return r
-          }
-          return 'CRNA GORA'
-        })()
+  // Nađi regiju iz locations tabele (najpouzdanije mapiranje)
+  const pickupRegion: string | null = locationData?.fleet_region || null
 
-        let q = supabase.from('vozila_fleet')
-          .select('id, agregirani_2, marka, model, year, license_plate, lokacija')
-          .ilike('marka', marka)
-          .ilike('model', model)
-          .eq('fleet_status', 'available')
-          .eq('lokacija', region)
-        if (year && !isNaN(parseInt(year))) q = q.eq('year', parseInt(year))
-        const { data: candidates, error: candErr } = await q
-        _log(`Candidates: ${candidates?.length} Error: ${candErr?.message} Region: ${region}`)
+  const fleet = fleetData || []
+  if (fleet.length === 0) return NextResponse.json([])
 
-        if (candidates && candidates.length > 0) {
-          // 2. Nađi zauzeta vozila iz kalendara za taj period
-          const plates = candidates.map((v: any) => v.license_plate).filter(Boolean)
-          const { data: zauzeta } = plates.length > 0
-            ? await supabase.from('rezervacije')
-                .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
-                .in('br_tablica', plates)
-                .lt('od_datuma', returnDate)
-                .gt('do_datuma', pickupDate)
-            : { data: [] }
+  // Zauzetost za dynamic pricing
+  const { data: zauzeteDanas } = await supabase
+    .from('rezervacije')
+    .select('br_tablica')
+    .neq('daily_status', 'Nije izdato')
+    .lte('od_datuma', targetDate)
+    .gt('do_datuma', targetDate)
 
-          const pickupDT = new Date(`${pickupDate}T${pickupTime || '10:00'}`)
-          const returnDT = new Date(`${returnDate}T${returnTime || '10:00'}`)
+  const totalAvailable = fleet.length
+  const zauzeteDanasSet = new Set((zauzeteDanas || []).map((r: any) => r.br_tablica))
+  const zauzeteDanasCount = fleet.filter((v: any) => zauzeteDanasSet.has(v.license_plate)).length
+  const occupancyRate = totalAvailable > 0 ? (zauzeteDanasCount / totalAvailable) * 100 : 0
 
-          // 3. Filtriraj slobodna vozila (s 1h lufta)
-          const free = candidates.filter((v: any) => {
-            return !(zauzeta || []).some((z: any) => {
-              const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
-              const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
-              // Konflikt ako se periodi preklapaju (sa 1h lufta)
-              return z.br_tablica === v.license_plate &&
-                zFrom < new Date(returnDT.getTime() + 3600000) &&
-                zTo > new Date(pickupDT.getTime() - 3600000)
-            })
-          })
+  const activeSeason = (seasons || [])[0] || null
+  const seasonMultiplier = activeSeason?.multiplier || 1
+  const activeDynamics = (dynamics || []).filter((d: any) => d.is_active && occupancyRate >= d.occupancy_threshold)
+  const dynamicMultiplier = activeDynamics.length > 0 ? 1 + activeDynamics[0].price_increase_percent / 100 : 1
 
-          // 4. Gap scoring — sortiraj slobodna vozila po tome koliko se dobro uklapaju u rupu
-          const reqMs = returnDT.getTime() - pickupDT.getTime()
+  const zauzetePeriodSet = new Set(((zauzeteRezData as any) || []).map((r: any) => r.br_tablica))
 
-          const scoreVehicle = (v: any, zau: any[]) => {
-            const vZauzeta = zau
-              .filter((z: any) => z.br_tablica === v.license_plate)
-              .sort((a: any, b: any) => a.od_datuma.localeCompare(b.od_datuma))
-            const prev = vZauzeta.filter((z: any) =>
-              new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`) <= pickupDT)
-            const next = vZauzeta.filter((z: any) =>
-              new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`) >= returnDT)
-            let gapMs = Infinity
-            if (prev.length > 0 && next.length > 0) {
-              gapMs = new Date(`${next[0].od_datuma}T${next[0].vreme_izdavanja || '10:00'}`).getTime() -
-                      new Date(`${prev[prev.length-1].do_datuma}T${prev[prev.length-1].vreme_povratka || '10:00'}`).getTime()
-            }
-            const surplus = gapMs === Infinity ? 30 * 86400000 : gapMs - reqMs
-            return gapMs === Infinity ? 50 : Math.max(0, 100 - (surplus / 3600000) * 2)
-          }
+  // Grupiši po marka+model+year — identično kao admin/vozila
+  const groupMap = new Map<string, any>()
 
-          if (free.length > 0) {
-            // Sortiraj po score
-            const scored = free.map((v: any) => ({ v, score: scoreVehicle(v, zauzeta || []) }))
-            scored.sort((a: any, b: any) => b.score - a.score)
+  for (const v of fleet) {
+    if (pickupDate && returnDate && zauzetePeriodSet.has(v.license_plate)) continue
 
-            // 5. INSERT-and-verify: pokušaj redom dok ne uspije
-            const days = Math.max(1, Math.ceil(reqMs / 86400000))
-            let inserted = false
-            _log(`Scored: ${scored.map((s: any) => s.v.license_plate+'('+s.score+')').join(', ')}`)
+    const key = `${v.marka}__${v.model}__${v.year}`
 
-            for (const { v } of scored) {
-              // Provjeri PONOVO iz baze (svježi podaci — sprječava race condition)
-              const { data: freshZauzeta, error: freshErr } = await supabase
-                .from('rezervacije')
-                .select('br_tablica, od_datuma, do_datuma, vreme_izdavanja, vreme_povratka')
-                .eq('br_tablica', v.license_plate)
-                .lt('od_datuma', returnDate)
-                .gt('do_datuma', pickupDate)
-
-              if (freshErr) _log(`freshErr: ${JSON.stringify(freshErr)}`)
-              _log(`${v.license_plate}: ${(freshZauzeta||[]).length} rez u kalendaru`)
-
-              const stillFree = !(freshZauzeta || []).some((z: any) => {
-                const zFrom = new Date(`${z.od_datuma}T${z.vreme_izdavanja || '10:00'}`)
-                const zTo = new Date(`${z.do_datuma}T${z.vreme_povratka || '10:00'}`)
-                const conflict = zFrom < new Date(returnDT.getTime() + 3600000) &&
-                       zTo > new Date(pickupDT.getTime() - 3600000)
-                if (conflict) _log(`  Konflikt: ${z.od_datuma}-${z.do_datuma}`)
-                return conflict
-              })
-
-              _log(`${v.license_plate} stillFree: ${stillFree}`)
-              if (!stillFree) continue
-
-              const { error: insErr } = await supabase.from('rezervacije').insert([{
-                br_tablica: v.license_plate,
-                ime_prezime: guestName,
-                od_datuma: pickupDate,
-                do_datuma: returnDate,
-                vreme_izdavanja: pickupTime || '10:00',
-                vreme_povratka: returnTime || '10:00',
-                mjesto_preuzimanja: pickupLocation || '',
-                mjesto_povratka: body.dropoffLocation || pickupLocation || '',
-                cijena_dan: Math.round((body.totalPrice || 0) / days),
-                ukupno_naplata: body.totalPrice || 0,
-                broj_dana: days,
-                nacin_placanja: 'Keš',
-                izvor_rezervacije: 'Sajt',
-                daily_status: 'Na čekanju',
-                napomena: `Sajt`,
-                tip_osiguranja: body.insurance === 'kasko_full' ? 'Full Kasko' : body.insurance === 'kasko_ucesce' ? 'Kasko sa učešćem' : 'Osnovno (AO)',
-              }])
-
-              if (!insErr) {
-                resolvedVehiclePlate = v.license_plate
-                resolvedVehicleName = v.agregirani_2 || vehicleName || `${v.marka} ${v.model} ${v.year}`
-                inserted = true
-                break
-              }
-              _log(`INSERT ERROR ${v.license_plate}: ${JSON.stringify(insErr)}`)
-              // insErr znači unique constraint — probaj sljedeće vozilo
-            }
-
-            if (!inserted) {
-              resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
-              resolvedVehiclePlate = null
-            }
-            // Log se dodaje u napomenu rezervacije pri kreiranju
-          } else {
-            // Sva vozila zauzeta — samo ime bez plate
-            resolvedVehicleName = vehicleName || `${marka} ${model} ${year || ''}`.trim()
-            resolvedVehiclePlate = null
-          }
-        } else {
-          resolvedVehicleName = vehicleName || vehicleId.split('__').join(' ')
-          resolvedVehiclePlate = null
-        }
-      }
-    } else if (vehicleId) {
-      const { data: fleetV } = await supabase
-        .from('vozila_fleet').select('agregirani_2, marka, model, year, license_plate').eq('id', vehicleId).single()
-      if (fleetV) {
-        resolvedVehicleName = fleetV.agregirani_2 || `${fleetV.marka} ${fleetV.model} ${fleetV.year}`
-        resolvedVehiclePlate = fleetV.license_plate
-      }
-    }
-
-    // Pronađi partnera
-    let partner = null
-    if (partnerQrCode) {
-      const { data: directPartner } = await supabase
-        .from('partners').select('*').eq('qr_code', partnerQrCode).eq('is_active', true).single()
-      if (directPartner) {
-        partner = directPartner
-      } else {
-        const { data: qrRow } = await supabase
-          .from('partner_qr_codes').select('partner_id').eq('qr_code', partnerQrCode).single()
-        if (qrRow) {
-          const { data: partnerData } = await supabase
-            .from('partners').select('*').eq('id', qrRow.partner_id).eq('is_active', true).single()
-          partner = partnerData
-        }
-      }
-    }
-
-    let qrLabel: string | null = null
-    if (partnerQrCode) {
-      const { data: qrRow } = await supabase
-        .from('partner_qr_codes').select('label').eq('qr_code', partnerQrCode).single()
-      qrLabel = qrRow?.label || null
-    }
-
-    const days = Math.max(1, Math.ceil((new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000))
-    const finalBasePrice = basePrice ?? days * 0
-    const finalTotal = totalPrice ?? finalBasePrice
-    const commissionPercent = partner?.commission_percent ?? 0
-    const commissionAmount = finalTotal * (commissionPercent / 100)
-
-    // ═══ Klijent — provjeri postoji li i ima li vozačku ═══
-    let clientId: string | null = null
-    let tempPassword: string | null = null
-    let isNewClient = false
-    let clientHasLicense = false
-
-    const { data: existingClient } = await supabase
-      .from('clients').select('id, user_id, licence_image_url, licence_number').eq('email', gEmail).single()
-
-    if (existingClient) {
-      clientId = existingClient.id
-      // Klijent postoji — provjeri ima li vozačku (ili u licence_image_url ili u licence_number)
-      clientHasLicense = !!(existingClient.licence_image_url || existingClient.licence_number)
-    } else {
-      tempPassword = generateTempPassword()
-      isNewClient = true
-      const { data: authData } = await supabase.auth.admin.createUser({
-        email: gEmail, password: tempPassword, email_confirm: true,
-        user_metadata: { full_name: guestName },
-      })
-      const { data: newClient } = await supabase.from('clients').insert({
-        email: gEmail, full_name: guestName, phone: guestPhone,
-        nationality: guestNationality, user_id: authData?.user?.id || null,
-      }).select().single()
-      clientId = newClient?.id || null
-      clientHasLicense = false
-    }
-
-    // ═══ Kreiraj rezervaciju ═══
-    const { data: reservation, error: resErr } = await supabase.from('reservations').insert({
-      vehicle_id: vehicleId || null,
-      assigned_vehicle_name: resolvedVehicleName || null,
-      assigned_vehicle_plate: resolvedVehiclePlate || null,
-      partner_id: partner?.id ?? null,
-      client_id: clientId,
-      guest_name: guestName,
-      guest_email: gEmail,
-      guest_phone: guestPhone,
-      guest_nationality: guestNationality,
-      guest_dob: guestDob || null,
-      guest_license: guestLicense || null,
-      has_second_driver: hasSecondDriver || false,
-      driver2_name: driver2Name || null,
-      driver2_license: driver2License || null,
-      driver2_nationality: driver2Nationality || null,
-      insurance: insurance || 'basic',
-      insurance_total: insuranceTotal || 0,
-      border_crossing: borderCrossing || null,
-      flight_number: flightNumber || null,
-      pickup_date: pickupDate,
-      return_date: returnDate,
-      pickup_time: pickupTime || '10:00',
-      return_time: returnTime || '10:00',
-      pickup_location: pickupLocation,
-      dropoff_location: dropoffLocation || null,
-      transfer_fee: transferFee || 0,
-      site_domain: siteDomain || 'rent-cars.me',
-      notes: typeof _logs !== 'undefined' && _logs.length > 0 ? `[LOG] ${_logs.join(' | ')}` : (notes || null),
-      base_price: finalBasePrice,
-      extras_total: extrasTotal,
-      total_price: finalTotal,
-      commission_percent: commissionPercent,
-      commission_amount: commissionAmount,
-      coupon_code: couponCode || null,
-      coupon_discount_percent: couponDiscountPercent || null,
-      coupon_discount_amount: couponDiscountAmount || null,
-      partner_discount_percent: partnerDiscountPercent || null,
-      partner_discount_amount: partnerDiscountAmount || null,
-      qr_source: partnerQrCode ?? null,
-      ref_qr_code: partnerQrCode ?? null,
-      ref_qr_label: qrLabel ?? null,
-      language: lang,
-      status: 'pending',
-      inquiry_status: 'new',
-      agent_id: agentId || null,
-      agent_name: agentName || null,
-    }).select().single()
-
-    if (resErr || !reservation) {
-      console.error('Reservation error:', resErr)
-      return NextResponse.json({ error: 'Error creating reservation' }, { status: 500 })
-    }
-
-    // Extras
-
-
-    // Ažuriraj napomenu u kalendaru sa ref_code
-    if (resolvedVehiclePlate && reservation?.ref_code) {
-      await supabase.from('rezervacije')
-        .update({ napomena: `Sajt ref: ${reservation.ref_code}` })
-        .eq('br_tablica', resolvedVehiclePlate)
-        .eq('od_datuma', pickupDate)
-        .eq('izvor_rezervacije', 'Sajt')
-    }
-
-    if (extras.length > 0) {
-      await supabase.from('reservation_extras').insert(
-        extras.map((e: any) => ({
-          reservation_id: reservation.id,
-          extra_id: e.extraId,
-          extra_name: e.extraName,
-          price_per_unit: e.pricePerUnit,
-          days: e.days,
-          total_price: e.totalPrice,
-          type: e.type,
-        }))
-      )
-    }
-
-    if (partnerQrCode && partner) {
-      await supabase.from('qr_scans').insert({
-        partner_id: partner.id, qr_code: partnerQrCode,
-        converted: true, reservation_id: reservation.id,
+    if (!groupMap.has(key)) {
+      groupMap.set(key, {
+        _vehicles: [],
+        marka: v.marka,
+        model: v.model,
+        year: v.year,
+        transmission: v.transmission,
+        fuel_type: v.fuel_type,
+        seats: v.seats,
+        image_url: v.image_url,
+        vehicle_class: v.vehicle_class,
+        features: v.features || [],
+        price_per_day: v.price_per_day || 0,
+        price_category_id: v.price_category_id,
+        lokacija: v.lokacija,
       })
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://rent-cars.me'
-
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const ge = guestEmail({
-        guestName, vehicleName: resolvedVehicleName,
-        pickupDate, returnDate, pickupLocation,
-        totalPrice: finalTotal, refCode: reservation.ref_code, lang,
-        isNewClient, tempPassword, siteUrl,
-        pickupTime: pickupTime || '10:00', returnTime: returnTime || '10:00',
-
-      })
-      const ae = adminEmail({
-        refCode: reservation.ref_code, guestName, guestEmail: gEmail, guestPhone,
-        vehicleName: resolvedVehicleName, pickupDate, returnDate, pickupLocation,
-        totalPrice: finalTotal, partnerName: partner?.name, commissionAmount,
-        qrSource: partnerQrCode, notes,
-      })
-      const ADMIN_EMAILS = [
-        'Edinsu@gmail.com',
-        'dino.mekic@gmail.com',
-        'info@planetrentacar.me',
-        'besim.adzovic1@gmail.com',
-      ]
-      await Promise.all([
-        resend.emails.send({ from: process.env.FROM_EMAIL!, to: gEmail, subject: ge.subject, html: ge.html }),
-        ...ADMIN_EMAILS.map(email => resend.emails.send({ from: process.env.FROM_EMAIL!, to: email, subject: ae.subject, html: ae.html })),
-        ...(partner?.email ? [resend.emails.send({ from: process.env.FROM_EMAIL!, to: partner.email, subject: ae.subject, html: ae.html })] : []),
-      ])
-    } catch (e) { console.error('Email error:', e) }
-
-    return NextResponse.json({
-      success: true,
-      refCode: reservation.ref_code,
-      isNewClient,
-      hasLicense: clientHasLicense,
-    })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    const g = groupMap.get(key)!
+    g._vehicles.push(v)
+    if (!g.image_url && v.image_url) g.image_url = v.image_url
+    if (!g.vehicle_class && v.vehicle_class) g.vehicle_class = v.vehicle_class
+    if ((!g.features || !g.features.length) && v.features?.length) g.features = v.features
+    if (!g.seats && v.seats) g.seats = v.seats
   }
+
+  // Filter po klasi
+  let groups = Array.from(groupMap.entries())
+  if (vehicleClass && vehicleClass !== 'all') {
+    groups = groups.filter(([, g]) => g.vehicle_class === vehicleClass)
+  }
+
+  // Finalna cijena sa svim multiplikatorima
+  const result = groups.map(([key, g]) => {
+    const cat = (categories || []).find((c: any) => c.id === g.price_category_id)
+    const catMultiplier = cat?.base_multiplier || 1
+    const finalPrice = Math.round(g.price_per_day * catMultiplier * seasonMultiplier * dynamicMultiplier)
+    const cleanName = `${g.marka} ${g.model} ${g.year || ''}`.trim()
+
+    return {
+      id: key,
+      name: cleanName,
+      category: g.vehicle_class || 'Hatchback',
+      price_per_day: finalPrice,
+      original_price: g.price_per_day,
+      seats: g.seats || 5,
+      transmission: g.transmission || 'manual',
+      fuel_type: g.fuel_type || 'diesel',
+      features: g.features || [],
+      year: g.year,
+      image_url: g.image_url,
+      season_name: activeSeason?.name || null,
+      category_name: cat?.name || null,
+      slobodnih: g._vehicles.filter((v: any) => !occupiedPlates.has(v.license_plate) && (!pickupRegion || v.lokacija === pickupRegion)).length,
+      lokacija: g.lokacija,
+      vehicle_locations: [],
+    }
+  })
+
+  // Ako su datumi odabrani, prikaži samo grupe sa bar jednim slobodnim vozilom
+  const finalResult = (pickupDate && returnDate)
+    ? result.filter((r: any) => r.slobodnih > 0)
+    : result
+
+  finalResult.sort((a, b) => a.price_per_day - b.price_per_day)
+
+  return NextResponse.json(finalResult)
 }
